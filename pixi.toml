@@ -1,0 +1,22 @@
+[workspace]
+authors = ["gencere757 <arda.gencer@sabanciuniv.edu>"]
+channels = ["conda-forge"]
+name = "gz-ws"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+
+[target.win-64.activation.env]
+QT_QPA_PLATFORM_PLUGIN_PATH='%CONDA_PREFIX%\Library\lib\qt6\plugins\platforms'
+QML2_IMPORT_PATH='%CONDA_PREFIX%\Library\lib\qt6\qml'
+HOME='C:\Users\ARDAGE~1'
+USERPROFILE='C:\Users\ARDAGE~1'
+GZ_CONFIG_PATH='C:/gz-ws/.pixi/envs/default/Library/share/gz'
+GZ_IP='127.0.0.1'
+GZ_PARTITION='gzsim'
+GZ_SIM_RESOURCE_PATH='C:/gz-ws/models'
+
+[dependencies]
+gz-sim = "10.*"
+gz-transport13 = ">=13.5.0,<14"
