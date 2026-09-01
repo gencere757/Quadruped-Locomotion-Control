@@ -1,0 +1,10 @@
+# pixi environment (huge, reproducible from pixi.toml/pixi.lock)
+.pixi/
+
+# python
+__pycache__/
+*.pyc
+
+# run logs / backups (transient, regenerated each run)
+run_log*.txt
+*.bak_v*
