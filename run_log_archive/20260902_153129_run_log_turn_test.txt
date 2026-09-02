@@ -1,0 +1,57 @@
+logging this run to run_log_turn_test.txt (same folder)
+waiting for the drop to settle...
+landed, pitch = 0.00 deg  roll = 0.00 deg
+--- crouch ---
+============================================================
+ scripted test: forward walk -> in-place rotation -> back walk -> combined linear+angular
+============================================================
+--- phase: forward walk  (vx=+0.200 m/s, turn=+0.00) ---
+PHASE START: forward walk vx=+0.200 turn=+0.00
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.027  body_xyz=[0.002843163926854624, -0.00038268934890904664, 0.3581454249779509]  pitch=+0.2deg  roll=+0.0deg  roll_term=+0.01deg  yaw=+0.0deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.059  turn_target=+0.00  speed_xy=0.086  body_xyz=[-0.008360605662494396, 0.015190154312034613, 0.3505242312573149]  pitch=+3.3deg  roll=-1.9deg  roll_term=-0.54deg  yaw=+2.9deg  abad={FL:-0.5 FR:-0.5 BL:-0.5 BR:-0.5}
+  vx_target=+0.121  turn_target=+0.00  speed_xy=0.107  body_xyz=[0.023212191675354845, 0.006876867210072783, 0.3517783730629922]  pitch=+2.0deg  roll=+0.3deg  roll_term=+0.09deg  yaw=+1.9deg  abad={FL:+0.1 FR:+0.1 BL:+0.1 BR:+0.1}
+  vx_target=+0.179  turn_target=+0.00  speed_xy=0.050  body_xyz=[0.01856387621602857, -0.010365490523180901, 0.3244916705270144]  pitch=-6.9deg  roll=+2.7deg  roll_term=+0.85deg  yaw=-0.9deg  abad={FL:+0.9 FR:+0.9 BL:+0.9 BR:+0.9}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.216  body_xyz=[0.02163010217293535, 0.01199168854283849, 0.3272375015572865]  pitch=-9.6deg  roll=-0.3deg  roll_term=+0.03deg  yaw=+5.3deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.157  body_xyz=[0.003791278400357818, 0.030088249452981594, 0.3197079948923799]  pitch=-11.1deg  roll=-3.0deg  roll_term=-0.91deg  yaw=+7.4deg  abad={FL:-0.9 FR:-0.9 BL:-0.9 BR:-0.9}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.092  body_xyz=[0.015547132055363178, -0.009039957204186782, 0.3452622213684707]  pitch=-17.7deg  roll=+0.3deg  roll_term=+0.08deg  yaw=-5.4deg  abad={FL:+0.1 FR:+0.1 BL:+0.1 BR:+0.1}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.033  body_xyz=[0.016394215971430093, -0.018751499526057598, 0.3331458206439822]  pitch=-18.9deg  roll=+2.3deg  roll_term=+0.70deg  yaw=-8.3deg  abad={FL:+0.7 FR:+0.7 BL:+0.7 BR:+0.7}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.172  body_xyz=[0.0437734118086615, -0.03217352885523451, 0.35541481592005625]  pitch=-12.9deg  roll=+4.3deg  roll_term=+1.25deg  yaw=-8.9deg  abad={FL:+1.3 FR:+1.3 BL:+1.3 BR:+1.3}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.107  body_xyz=[0.057691805586554304, -0.012609393511658094, 0.3368223368411]  pitch=-19.5deg  roll=+0.6deg  roll_term=+0.17deg  yaw=-8.3deg  abad={FL:+0.2 FR:+0.2 BL:+0.2 BR:+0.2}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.178  body_xyz=[0.08057047266248882, -0.023921647270553723, 0.3351702060854803]  pitch=-14.6deg  roll=+2.3deg  roll_term=+0.65deg  yaw=-4.7deg  abad={FL:+0.6 FR:+0.6 BL:+0.6 BR:+0.6}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.144  body_xyz=[0.10977562703424931, 0.004784421462087088, 0.3249840269732672]  pitch=-7.5deg  roll=-1.7deg  roll_term=-0.47deg  yaw=+2.8deg  abad={FL:-0.5 FR:-0.5 BL:-0.5 BR:-0.5}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.250  body_xyz=[0.1057227256811415, 0.01094620116910974, 0.33964044881501765]  pitch=-4.9deg  roll=-0.8deg  roll_term=-0.24deg  yaw=-1.6deg  abad={FL:-0.2 FR:-0.2 BL:-0.2 BR:-0.2}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.092  body_xyz=[0.12991531778407378, -0.030016113349648918, 0.31696965313574177]  pitch=-2.3deg  roll=+2.4deg  roll_term=+0.73deg  yaw=-13.3deg  abad={FL:+0.7 FR:+0.7 BL:+0.7 BR:+0.7}
+    [forward walk] dx=+0.119 dy=-0.021 dist=0.120m  net_yaw=-13.9deg  avg_speed=0.030 m/s  avg_yaw_rate=-3.4 deg/s
+PHASE END: forward walk
+--- phase: in-place rotation  (vx=+0.000 m/s, turn=+1.00) ---
+PHASE START: in-place rotation vx=+0.000 turn=+1.00
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.342  body_xyz=[0.2071114300339029, -0.028971907639389446, 0.3623073322945815]  pitch=+7.0deg  roll=+0.8deg  roll_term=+0.24deg  yaw=-2.8deg  abad={FL:+0.2 FR:+0.2 BL:+0.2 BR:+0.2}
+  vx_target=+0.000  turn_target=+0.62  speed_xy=0.297  body_xyz=[0.12445096485481749, -0.0027857323324766395, 0.32010576924005074]  pitch=-3.0deg  roll=-2.9deg  roll_term=-0.86deg  yaw=+5.1deg  abad={FL:-0.9 FR:-0.9 BL:-0.9 BR:-0.9}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.039  body_xyz=[0.07922098992900861, -0.009832329221755965, 0.3337693802886945]  pitch=-10.1deg  roll=-3.0deg  roll_term=-0.95deg  yaw=-4.9deg  abad={FL:-0.9 FR:-0.9 BL:-0.9 BR:-0.9}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.048  body_xyz=[0.07391009358013925, -0.020686529698903985, 0.3435959844529579]  pitch=-9.2deg  roll=-1.6deg  roll_term=-0.51deg  yaw=-2.7deg  abad={FL:-0.5 FR:-0.5 BL:-0.5 BR:-0.5}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.039  body_xyz=[0.07710457682319706, -0.027889247816651013, 0.33169310520994305]  pitch=-5.2deg  roll=-1.7deg  roll_term=-0.52deg  yaw=+6.9deg  abad={FL:-0.5 FR:-0.5 BL:-0.5 BR:-0.5}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.159  body_xyz=[0.05821631158175977, -0.05223509878994675, 0.3316784963751118]  pitch=-0.4deg  roll=+1.5deg  roll_term=+0.48deg  yaw=+4.9deg  abad={FL:+0.5 FR:+0.5 BL:+0.5 BR:+0.5}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.070  body_xyz=[0.07788231145084543, -0.02176256448574901, 0.33379619399298643]  pitch=-3.0deg  roll=-3.3deg  roll_term=-1.14deg  yaw=-4.9deg  abad={FL:-1.1 FR:-1.1 BL:-1.1 BR:-1.1}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.263  body_xyz=[0.10898996735917348, -0.0785667090694045, 0.34435521829645277]  pitch=-4.4deg  roll=+3.1deg  roll_term=+0.93deg  yaw=-8.0deg  abad={FL:+0.9 FR:+0.9 BL:+0.9 BR:+0.9}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.282  body_xyz=[0.1575329543806913, -0.07700642171653573, 0.32171714428683107]  pitch=+2.8deg  roll=+2.5deg  roll_term=+0.74deg  yaw=-3.6deg  abad={FL:+0.7 FR:+0.7 BL:+0.7 BR:+0.7}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.221  body_xyz=[0.15619630983988256, -0.07656426662177991, 0.3506540169986834]  pitch=+10.2deg  roll=+4.5deg  roll_term=+1.34deg  yaw=-12.9deg  abad={FL:+1.3 FR:+1.3 BL:+1.3 BR:+1.3}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.191  body_xyz=[0.14444375508220353, -0.03601280645731512, 0.3433520730077709]  pitch=+2.7deg  roll=-0.3deg  roll_term=-0.07deg  yaw=-18.0deg  abad={FL:-0.1 FR:-0.1 BL:-0.1 BR:-0.1}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.149  body_xyz=[0.12027222706192815, -0.03797607013623711, 0.3435595526608266]  pitch=-5.0deg  roll=+0.8deg  roll_term=+0.21deg  yaw=-16.9deg  abad={FL:+0.2 FR:+0.2 BL:+0.2 BR:+0.2}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.077  body_xyz=[0.10895110962523075, -0.02702745227129408, 0.34844199498277817]  pitch=-0.7deg  roll=-0.7deg  roll_term=-0.20deg  yaw=-24.3deg  abad={FL:-0.2 FR:-0.2 BL:-0.2 BR:-0.2}
+  vx_target=+0.000  turn_target=+1.00  speed_xy=0.145  body_xyz=[0.1206771088743976, -0.014887051297339093, 0.34822692897161944]  pitch=-2.7deg  roll=-2.2deg  roll_term=-0.72deg  yaw=-24.9deg  abad={FL:-0.7 FR:-0.7 BL:-0.7 BR:-0.7}
+    [in-place rotation] dx=-0.109 dy=+0.003 dist=0.109m  net_yaw=-24.5deg  avg_speed=0.027 m/s  avg_yaw_rate=-6.0 deg/s
+PHASE END: in-place rotation
+--- phase: back walk  (vx=-0.200 m/s, turn=+0.00) ---
+PHASE START: back walk vx=-0.200 turn=+0.00
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.047  body_xyz=[0.3315233491126783, -0.12902114602549947, 0.33799298811992895]  pitch=+23.6deg  roll=-0.2deg  roll_term=-0.07deg  yaw=-23.3deg  abad={FL:-0.1 FR:-0.1 BL:-0.1 BR:-0.1}
+  vx_target=-0.058  turn_target=+0.00  speed_xy=0.196  body_xyz=[0.33067010279230913, -0.11926656611288212, 0.3290649694106514]  pitch=+13.6deg  roll=-1.6deg  roll_term=-0.55deg  yaw=-19.8deg  abad={FL:-0.5 FR:-0.5 BL:-0.5 BR:-0.5}
+  vx_target=-0.119  turn_target=+0.00  speed_xy=0.103  body_xyz=[0.2610356975026182, -0.115020320815047, 0.34718773333291597]  pitch=-0.8deg  roll=-0.1deg  roll_term=+0.03deg  yaw=-20.3deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=-0.181  turn_target=+0.00  speed_xy=0.238  body_xyz=[0.26665980180960797, -0.08646560711117604, 0.33205715024442267]  pitch=-2.0deg  roll=-3.9deg  roll_term=-1.18deg  yaw=-26.8deg  abad={FL:-1.2 FR:-1.2 BL:-1.2 BR:-1.2}
+  vx_target=-0.200  turn_target=+0.00  speed_xy=0.179  body_xyz=[0.29562114519051186, -0.12862457784124914, 0.3325740320284753]  pitch=+18.9deg  roll=-0.5deg  roll_term=-0.15deg  yaw=-18.5deg  abad={FL:-0.1 FR:-0.1 BL:-0.1 BR:-0.1}
+  vx_target=-0.200  turn_target=+0.00  speed_xy=0.160  body_xyz=[0.2750002767797912, -0.15791522969886057, 0.31091614841314885]  pitch=+9.4deg  roll=+2.9deg  roll_term=+0.82deg  yaw=-11.2deg  abad={FL:+0.8 FR:+0.8 BL:+0.8 BR:+0.8}
+!!! SAFETY ABORT: |pitch|=26.0 deg  |roll|=3.2 deg exceeded 25.0 deg !!!
+    [back walk] dx=-0.058 dy=-0.036 dist=0.068m  net_yaw=+11.5deg  avg_speed=0.040 m/s  avg_yaw_rate=+6.7 deg/s  *** ABORTED (fell/flipped during this phase) ***
+PHASE END: back walk
+--- stopping: ramping targets to zero ---
+sequence stopped early (safety abort) during phase: back walk
+turn_test.py exiting

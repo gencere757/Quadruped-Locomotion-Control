@@ -6,14 +6,14 @@
 
     <link name="body">
       <pose>0 0 0 0 0 0</pose>
-        <inertial>
-          <pose>0.000083 -0.000000 0.000110 0 0 0</pose>
-          <mass>8.439599</mass>
-          <inertia>
-            <ixx>3.516112e-02</ixx><iyy>1.193128e-01</iyy><izz>1.406354e-01</izz>
-            <ixy>-6.374481e-17</ixy><ixz>-3.701393e-05</ixz><iyz>-1.216410e-17</iyz>
-          </inertia>
-        </inertial>
+          <inertial>
+            <pose>7.474328e-05 1.091698e-11 9.906994e-05 0 0 0</pose>
+            <mass>9.359795</mass>
+            <inertia>
+              <ixx>5.288227e-02</ixx><iyy>1.307382e-01</iyy><izz>1.683014e-01</izz>
+              <ixy>1.140602e-08</ixy><ixz>-3.702149e-05</ixz><iyz>-6.460653e-13</iyz>
+            </inertia>
+          </inertial>
       <visual name="body_visual">
         <pose>0 0 0 0 0 0</pose>
         <geometry><mesh><uri>meshes/body.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
@@ -31,108 +31,92 @@
 
     <link name="FL_ABAD_L">
       <pose>0.150000 0.113000 0.000000 -1.570796 0 0</pose>
-        <inertial>
-          <pose>0.000000 0.000000 0.018481 0 0 0</pose>
-          <mass>0.307113</mass>
-          <inertia>
-            <ixx>1.089655e-04</ixx><iyy>1.089655e-04</iyy><izz>7.299315e-05</izz>
-            <ixy>0.000000e+00</ixy><ixz>0.000000e+00</ixz><iyz>0.000000e+00</iyz>
-          </inertia>
-        </inertial>
-      <visual name="FL_abad_motor_visual">
+          <inertial>
+            <pose>2.173274e-02 1.088706e-09 3.607794e-02 0 0 0</pose>
+            <mass>1.497224</mass>
+            <inertia>
+              <ixx>1.987691e-03</ixx><iyy>2.642853e-03</iyy><izz>1.910355e-03</izz>
+              <ixy>-1.594684e-09</ixy><ixz>2.633865e-04</ixz><iyz>2.727165e-11</iyz>
+            </inertia>
+          </inertial>
+      <visual name="FL_abad_hip_unit_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/abad_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.6 0.1 0.1 1</ambient><diffuse>0.75 0.15 0.15 1</diffuse></material></visual>
-      <collision name="FL_abad_motor_collision">
+        <geometry><mesh><uri>meshes/abad_hip_unit.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+      <material><ambient>0.7 0.4 0.1 1</ambient><diffuse>0.85 0.5 0.15 1</diffuse></material></visual>
+            <collision name="FL_abad_motor_collision">
         <pose>0 0 0.025 0 0 0</pose>
         <geometry><cylinder><radius>0.028</radius><length>0.050</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="FL_hip_motor_visual">
-        <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
-        <geometry><mesh><uri>meshes/hip_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="FL_hip_motor_collision">
+            <collision name="FL_hip_motor_collision">
         <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
         <geometry><cylinder><radius>0.030</radius><length>0.055</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
     </link>
     <link name="FR_ABAD_L">
       <pose>0.150000 -0.113000 0.000000 1.570796 0 0</pose>
-        <inertial>
-          <pose>0.000000 0.000000 0.018481 0 0 0</pose>
-          <mass>0.307113</mass>
-          <inertia>
-            <ixx>1.089655e-04</ixx><iyy>1.089655e-04</iyy><izz>7.299315e-05</izz>
-            <ixy>0.000000e+00</ixy><ixz>0.000000e+00</ixz><iyz>0.000000e+00</iyz>
-          </inertia>
-        </inertial>
-      <visual name="FR_abad_motor_visual">
+          <inertial>
+            <pose>2.173274e-02 1.088706e-09 3.607794e-02 0 0 0</pose>
+            <mass>1.497224</mass>
+            <inertia>
+              <ixx>1.987691e-03</ixx><iyy>2.642853e-03</iyy><izz>1.910355e-03</izz>
+              <ixy>-1.594684e-09</ixy><ixz>2.633865e-04</ixz><iyz>2.727165e-11</iyz>
+            </inertia>
+          </inertial>
+      <visual name="FR_abad_hip_unit_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/abad_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.6 0.1 0.1 1</ambient><diffuse>0.75 0.15 0.15 1</diffuse></material></visual>
-      <collision name="FR_abad_motor_collision">
+        <geometry><mesh><uri>meshes/abad_hip_unit.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+      <material><ambient>0.7 0.4 0.1 1</ambient><diffuse>0.85 0.5 0.15 1</diffuse></material></visual>
+            <collision name="FR_abad_motor_collision">
         <pose>0 0 0.025 0 0 0</pose>
         <geometry><cylinder><radius>0.028</radius><length>0.050</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="FR_hip_motor_visual">
-        <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
-        <geometry><mesh><uri>meshes/hip_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="FR_hip_motor_collision">
+            <collision name="FR_hip_motor_collision">
         <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
         <geometry><cylinder><radius>0.030</radius><length>0.055</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
     </link>
     <link name="BL_ABAD_L">
       <pose>-0.150000 0.113000 0.000000 -1.570796 0 0</pose>
-        <inertial>
-          <pose>0.000000 0.000000 0.018481 0 0 0</pose>
-          <mass>0.307113</mass>
-          <inertia>
-            <ixx>1.089655e-04</ixx><iyy>1.089655e-04</iyy><izz>7.299315e-05</izz>
-            <ixy>0.000000e+00</ixy><ixz>0.000000e+00</ixz><iyz>0.000000e+00</iyz>
-          </inertia>
-        </inertial>
-      <visual name="BL_abad_motor_visual">
+          <inertial>
+            <pose>-2.173274e-02 -1.088706e-09 3.607794e-02 0 0 0</pose>
+            <mass>1.497224</mass>
+            <inertia>
+              <ixx>1.987691e-03</ixx><iyy>2.642853e-03</iyy><izz>1.910355e-03</izz>
+              <ixy>-1.594684e-09</ixy><ixz>-2.633865e-04</ixz><iyz>-2.727165e-11</iyz>
+            </inertia>
+          </inertial>
+      <visual name="BL_abad_hip_unit_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/abad_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.6 0.1 0.1 1</ambient><diffuse>0.75 0.15 0.15 1</diffuse></material></visual>
-      <collision name="BL_abad_motor_collision">
+        <geometry><mesh><uri>meshes/abad_hip_unit.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+      <material><ambient>0.7 0.4 0.1 1</ambient><diffuse>0.85 0.5 0.15 1</diffuse></material></visual>
+            <collision name="BL_abad_motor_collision">
         <pose>0 0 0.025 0 0 0</pose>
         <geometry><cylinder><radius>0.028</radius><length>0.050</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="BL_hip_motor_visual">
-        <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
-        <geometry><mesh><uri>meshes/hip_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="BL_hip_motor_collision">
+            <collision name="BL_hip_motor_collision">
         <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
         <geometry><cylinder><radius>0.030</radius><length>0.055</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
     </link>
     <link name="BR_ABAD_L">
       <pose>-0.150000 -0.113000 0.000000 1.570796 0 0</pose>
-        <inertial>
-          <pose>0.000000 0.000000 0.018481 0 0 0</pose>
-          <mass>0.307113</mass>
-          <inertia>
-            <ixx>1.089655e-04</ixx><iyy>1.089655e-04</iyy><izz>7.299315e-05</izz>
-            <ixy>0.000000e+00</ixy><ixz>0.000000e+00</ixz><iyz>0.000000e+00</iyz>
-          </inertia>
-        </inertial>
-      <visual name="BR_abad_motor_visual">
+          <inertial>
+            <pose>-2.173274e-02 -1.088706e-09 3.607794e-02 0 0 0</pose>
+            <mass>1.497224</mass>
+            <inertia>
+              <ixx>1.987691e-03</ixx><iyy>2.642853e-03</iyy><izz>1.910355e-03</izz>
+              <ixy>-1.594684e-09</ixy><ixz>-2.633865e-04</ixz><iyz>-2.727165e-11</iyz>
+            </inertia>
+          </inertial>
+      <visual name="BR_abad_hip_unit_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/abad_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.6 0.1 0.1 1</ambient><diffuse>0.75 0.15 0.15 1</diffuse></material></visual>
-      <collision name="BR_abad_motor_collision">
+        <geometry><mesh><uri>meshes/abad_hip_unit.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+      <material><ambient>0.7 0.4 0.1 1</ambient><diffuse>0.85 0.5 0.15 1</diffuse></material></visual>
+            <collision name="BR_abad_motor_collision">
         <pose>0 0 0.025 0 0 0</pose>
         <geometry><cylinder><radius>0.028</radius><length>0.050</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="BR_hip_motor_visual">
-        <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
-        <geometry><mesh><uri>meshes/hip_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="BR_hip_motor_collision">
+            <collision name="BR_hip_motor_collision">
         <pose>0.000000 0.000000 0.050000 0.000000 0 0</pose>
         <geometry><cylinder><radius>0.030</radius><length>0.055</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
@@ -140,44 +124,40 @@
 
     <link name="FL_thigh">
       <pose>0.150000 0.213000 0.000000 3.141593 0 0</pose>
-        <inertial>
-          <pose>-0.000000 -0.000000 0.098040 0 0 0</pose>
-          <mass>0.151773</mass>
-          <inertia>
-            <ixx>6.516391e-04</ixx><iyy>6.334464e-04</iyy><izz>4.922838e-05</izz>
-            <ixy>2.220304e-22</ixy><ixz>-1.325625e-18</ixz><iyz>-4.032965e-20</iyz>
-          </inertia>
-        </inertial>
-      <visual name="FL_thigh_visual">
+          <inertial>
+            <pose>-1.612288e-11 -9.220472e-03 1.277627e-01 0 0 0</pose>
+            <mass>0.653267</mass>
+            <inertia>
+              <ixx>5.625317e-03</ixx><iyy>5.791033e-03</iyy><izz>3.638081e-04</izz>
+              <ixy>1.247386e-13</ixy><ixz>9.726649e-14</ixz><iyz>3.519247e-04</iyz>
+            </inertia>
+          </inertial>
+      <visual name="FL_thigh_assembly_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/thigh.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/thigh_assembly_L.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
-      <collision name="FL_thigh_collision">
+            <collision name="FL_thigh_collision">
         <pose>0 0 0.0975 0 0 0</pose>
         <geometry><box><size>0.048 0.048 0.205</size></box></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="FL_knee_motor_visual">
-        <pose>0.000000 -0.005000 0.200000 -4.712389 0 0</pose>
-        <geometry><mesh><uri>meshes/knee_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="FL_knee_motor_collision">
+            <collision name="FL_knee_motor_collision">
         <pose>0.000000 -0.005000 0.200000 -4.712389 0 0</pose>
         <geometry><cylinder><radius>0.020</radius><length>0.042</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
     </link>
     <link name="FL_shank">
       <pose>0.150000 0.255000 -0.200000 3.141593 0 0</pose>
-        <inertial>
-          <pose>0.000000 -0.000000 0.131487 0 0 0</pose>
-          <mass>0.093429</mass>
-          <inertia>
-            <ixx>4.874824e-04</ixx><iyy>4.848999e-04</iyy><izz>1.355371e-05</izz>
-            <ixy>4.680956e-16</ixy><ixz>-6.910650e-16</ixz><iyz>2.522661e-15</iyz>
-          </inertia>
-        </inertial>
+          <inertial>
+            <pose>1.274823e-13 -2.366784e-03 4.559746e-02 0 0 0</pose>
+            <mass>0.265438</mass>
+            <inertia>
+              <ixx>1.572373e-03</ixx><iyy>1.606670e-03</iyy><izz>4.082361e-05</izz>
+              <ixy>3.617237e-16</ixy><ixz>-3.647744e-15</ixz><iyz>-3.019568e-05</iyz>
+            </inertia>
+          </inertial>
       <visual name="FL_shank_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/shank.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/shank_L.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
       <collision name="FL_shank_beam_collision">
         <pose>0 0 0.0975 0 0 0</pose>
@@ -190,44 +170,40 @@
     </link>
     <link name="FR_thigh">
       <pose>0.150000 -0.213000 0.000000 3.141593 0 0</pose>
-        <inertial>
-          <pose>-0.000000 -0.000000 0.098040 0 0 0</pose>
-          <mass>0.151773</mass>
-          <inertia>
-            <ixx>6.516391e-04</ixx><iyy>6.334464e-04</iyy><izz>4.922838e-05</izz>
-            <ixy>2.220304e-22</ixy><ixz>-1.325625e-18</ixz><iyz>-4.032965e-20</iyz>
-          </inertia>
-        </inertial>
-      <visual name="FR_thigh_visual">
+          <inertial>
+            <pose>1.472729e-16 7.946272e-03 1.277627e-01 0 0 0</pose>
+            <mass>0.653267</mass>
+            <inertia>
+              <ixx>5.639607e-03</ixx><iyy>5.791033e-03</iyy><izz>3.780975e-04</izz>
+              <ixy>8.126825e-18</ixy><ixz>-3.380865e-17</ixz><iyz>-4.701576e-04</iyz>
+            </inertia>
+          </inertial>
+      <visual name="FR_thigh_assembly_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/thigh.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/thigh_assembly_R.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
-      <collision name="FR_thigh_collision">
+            <collision name="FR_thigh_collision">
         <pose>0 0 0.0975 0 0 0</pose>
         <geometry><box><size>0.048 0.048 0.205</size></box></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="FR_knee_motor_visual">
-        <pose>0.000000 0.005000 0.200000 -1.570796 0 0</pose>
-        <geometry><mesh><uri>meshes/knee_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="FR_knee_motor_collision">
+            <collision name="FR_knee_motor_collision">
         <pose>0.000000 0.005000 0.200000 -1.570796 0 0</pose>
         <geometry><cylinder><radius>0.020</radius><length>0.042</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
     </link>
     <link name="FR_shank">
       <pose>0.150000 -0.255000 -0.200000 3.141593 0 0</pose>
-        <inertial>
-          <pose>0.000000 -0.000000 0.131487 0 0 0</pose>
-          <mass>0.093429</mass>
-          <inertia>
-            <ixx>4.874824e-04</ixx><iyy>4.848999e-04</iyy><izz>1.355371e-05</izz>
-            <ixy>4.680956e-16</ixy><ixz>-6.910650e-16</ixz><iyz>2.522661e-15</iyz>
-          </inertia>
-        </inertial>
+          <inertial>
+            <pose>1.274823e-13 -2.366784e-03 4.559746e-02 0 0 0</pose>
+            <mass>0.265438</mass>
+            <inertia>
+              <ixx>1.572373e-03</ixx><iyy>1.606670e-03</iyy><izz>4.082361e-05</izz>
+              <ixy>3.617237e-16</ixy><ixz>-3.647744e-15</ixz><iyz>-3.019568e-05</iyz>
+            </inertia>
+          </inertial>
       <visual name="FR_shank_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/shank.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/shank_R.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
       <collision name="FR_shank_beam_collision">
         <pose>0 0 0.0975 0 0 0</pose>
@@ -240,44 +216,40 @@
     </link>
     <link name="BL_thigh">
       <pose>-0.150000 0.213000 0.000000 3.141593 0 0</pose>
-        <inertial>
-          <pose>-0.000000 -0.000000 0.098040 0 0 0</pose>
-          <mass>0.151773</mass>
-          <inertia>
-            <ixx>6.516391e-04</ixx><iyy>6.334464e-04</iyy><izz>4.922838e-05</izz>
-            <ixy>2.220304e-22</ixy><ixz>-1.325625e-18</ixz><iyz>-4.032965e-20</iyz>
-          </inertia>
-        </inertial>
-      <visual name="BL_thigh_visual">
+          <inertial>
+            <pose>-1.612288e-11 -9.220472e-03 1.277627e-01 0 0 0</pose>
+            <mass>0.653267</mass>
+            <inertia>
+              <ixx>5.625317e-03</ixx><iyy>5.791033e-03</iyy><izz>3.638081e-04</izz>
+              <ixy>1.247386e-13</ixy><ixz>9.726649e-14</ixz><iyz>3.519247e-04</iyz>
+            </inertia>
+          </inertial>
+      <visual name="BL_thigh_assembly_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/thigh.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/thigh_assembly_L.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
-      <collision name="BL_thigh_collision">
+            <collision name="BL_thigh_collision">
         <pose>0 0 0.0975 0 0 0</pose>
         <geometry><box><size>0.048 0.048 0.205</size></box></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="BL_knee_motor_visual">
-        <pose>0.000000 -0.005000 0.200000 -4.712389 0 0</pose>
-        <geometry><mesh><uri>meshes/knee_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="BL_knee_motor_collision">
+            <collision name="BL_knee_motor_collision">
         <pose>0.000000 -0.005000 0.200000 -4.712389 0 0</pose>
         <geometry><cylinder><radius>0.020</radius><length>0.042</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
     </link>
     <link name="BL_shank">
       <pose>-0.150000 0.255000 -0.200000 3.141593 0 0</pose>
-        <inertial>
-          <pose>0.000000 -0.000000 0.131487 0 0 0</pose>
-          <mass>0.093429</mass>
-          <inertia>
-            <ixx>4.874824e-04</ixx><iyy>4.848999e-04</iyy><izz>1.355371e-05</izz>
-            <ixy>4.680956e-16</ixy><ixz>-6.910650e-16</ixz><iyz>2.522661e-15</iyz>
-          </inertia>
-        </inertial>
+          <inertial>
+            <pose>1.274823e-13 -2.366784e-03 4.559746e-02 0 0 0</pose>
+            <mass>0.265438</mass>
+            <inertia>
+              <ixx>1.572373e-03</ixx><iyy>1.606670e-03</iyy><izz>4.082361e-05</izz>
+              <ixy>3.617237e-16</ixy><ixz>-3.647744e-15</ixz><iyz>-3.019568e-05</iyz>
+            </inertia>
+          </inertial>
       <visual name="BL_shank_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/shank.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/shank_L.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
       <collision name="BL_shank_beam_collision">
         <pose>0 0 0.0975 0 0 0</pose>
@@ -290,44 +262,40 @@
     </link>
     <link name="BR_thigh">
       <pose>-0.150000 -0.213000 0.000000 3.141593 0 0</pose>
-        <inertial>
-          <pose>-0.000000 -0.000000 0.098040 0 0 0</pose>
-          <mass>0.151773</mass>
-          <inertia>
-            <ixx>6.516391e-04</ixx><iyy>6.334464e-04</iyy><izz>4.922838e-05</izz>
-            <ixy>2.220304e-22</ixy><ixz>-1.325625e-18</ixz><iyz>-4.032965e-20</iyz>
-          </inertia>
-        </inertial>
-      <visual name="BR_thigh_visual">
+          <inertial>
+            <pose>1.472729e-16 7.946272e-03 1.277627e-01 0 0 0</pose>
+            <mass>0.653267</mass>
+            <inertia>
+              <ixx>5.639607e-03</ixx><iyy>5.791033e-03</iyy><izz>3.780975e-04</izz>
+              <ixy>8.126825e-18</ixy><ixz>-3.380865e-17</ixz><iyz>-4.701576e-04</iyz>
+            </inertia>
+          </inertial>
+      <visual name="BR_thigh_assembly_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/thigh.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/thigh_assembly_R.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
-      <collision name="BR_thigh_collision">
+            <collision name="BR_thigh_collision">
         <pose>0 0 0.0975 0 0 0</pose>
         <geometry><box><size>0.048 0.048 0.205</size></box></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
-      <visual name="BR_knee_motor_visual">
-        <pose>0.000000 0.005000 0.200000 -1.570796 0 0</pose>
-        <geometry><mesh><uri>meshes/knee_motor.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
-      <material><ambient>0.85 0.45 0.05 1</ambient><diffuse>0.95 0.55 0.1 1</diffuse></material></visual>
-      <collision name="BR_knee_motor_collision">
+            <collision name="BR_knee_motor_collision">
         <pose>0.000000 0.005000 0.200000 -1.570796 0 0</pose>
         <geometry><cylinder><radius>0.020</radius><length>0.042</length></cylinder></geometry>
       <surface><friction><ode><mu>5</mu><mu2>5</mu2></ode></friction><contact><ode><kp>1e5</kp><kd>300</kd></ode></contact></surface></collision>
     </link>
     <link name="BR_shank">
       <pose>-0.150000 -0.255000 -0.200000 3.141593 0 0</pose>
-        <inertial>
-          <pose>0.000000 -0.000000 0.131487 0 0 0</pose>
-          <mass>0.093429</mass>
-          <inertia>
-            <ixx>4.874824e-04</ixx><iyy>4.848999e-04</iyy><izz>1.355371e-05</izz>
-            <ixy>4.680956e-16</ixy><ixz>-6.910650e-16</ixz><iyz>2.522661e-15</iyz>
-          </inertia>
-        </inertial>
+          <inertial>
+            <pose>1.274823e-13 -2.366784e-03 4.559746e-02 0 0 0</pose>
+            <mass>0.265438</mass>
+            <inertia>
+              <ixx>1.572373e-03</ixx><iyy>1.606670e-03</iyy><izz>4.082361e-05</izz>
+              <ixy>3.617237e-16</ixy><ixz>-3.647744e-15</ixz><iyz>-3.019568e-05</iyz>
+            </inertia>
+          </inertial>
       <visual name="BR_shank_visual">
         <pose>0 0 0 0 0 0</pose>
-        <geometry><mesh><uri>meshes/shank.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
+        <geometry><mesh><uri>meshes/shank_R.stl</uri><scale>0.001 0.001 0.001</scale></mesh></geometry>
       <material><ambient>0.15 0.35 0.6 1</ambient><diffuse>0.2 0.45 0.75 1</diffuse></material></visual>
       <collision name="BR_shank_beam_collision">
         <pose>0 0 0.0975 0 0 0</pose>
@@ -345,7 +313,7 @@
       <pose relative_to="FL_ABAD_L">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">1 0 0</xyz>
-        <limit><lower>-0.4</lower><upper>0.4</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.4</lower><upper>0.4</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -355,7 +323,7 @@
       <pose relative_to="FL_thigh">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 -1 0</xyz>
-        <limit><lower>-0.9</lower><upper>0.9</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.9</lower><upper>0.9</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -365,7 +333,7 @@
       <pose relative_to="FL_shank">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 -1 0</xyz>
-        <limit><lower>-1.6</lower><upper>0.2</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-1.6</lower><upper>0.2</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -375,7 +343,7 @@
       <pose relative_to="FR_ABAD_L">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">1 0 0</xyz>
-        <limit><lower>-0.4</lower><upper>0.4</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.4</lower><upper>0.4</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -385,7 +353,7 @@
       <pose relative_to="FR_thigh">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 -1 0</xyz>
-        <limit><lower>-0.9</lower><upper>0.9</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.9</lower><upper>0.9</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -395,7 +363,7 @@
       <pose relative_to="FR_shank">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 -1 0</xyz>
-        <limit><lower>-1.6</lower><upper>0.2</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-1.6</lower><upper>0.2</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -405,7 +373,7 @@
       <pose relative_to="BL_ABAD_L">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">1 0 0</xyz>
-        <limit><lower>-0.4</lower><upper>0.4</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.4</lower><upper>0.4</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -415,7 +383,7 @@
       <pose relative_to="BL_thigh">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 1 0</xyz>
-        <limit><lower>-0.9</lower><upper>0.9</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.9</lower><upper>0.9</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -425,7 +393,7 @@
       <pose relative_to="BL_shank">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 1 0</xyz>
-        <limit><lower>-1.6</lower><upper>0.2</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-1.6</lower><upper>0.2</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -435,7 +403,7 @@
       <pose relative_to="BR_ABAD_L">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">1 0 0</xyz>
-        <limit><lower>-0.4</lower><upper>0.4</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.4</lower><upper>0.4</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -445,7 +413,7 @@
       <pose relative_to="BR_thigh">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 1 0</xyz>
-        <limit><lower>-0.9</lower><upper>0.9</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-0.9</lower><upper>0.9</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -455,7 +423,7 @@
       <pose relative_to="BR_shank">0 0 0 0 0 0</pose>
       <axis>
         <xyz expressed_in="__model__">0 1 0</xyz>
-        <limit><lower>-1.6</lower><upper>0.2</upper><effort>40</effort><velocity>8</velocity></limit>
+        <limit><lower>-1.6</lower><upper>0.2</upper><effort>18</effort><velocity>8</velocity></limit>
         <dynamics><damping>0.2</damping><friction>0.1</friction></dynamics>
       </axis>
     </joint>
@@ -463,73 +431,73 @@
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>FL_ABAD</joint_name>
       <topic>/model/my_quadruped/joint/FL_ABAD/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>FL_HIP</joint_name>
       <topic>/model/my_quadruped/joint/FL_HIP/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>FL_KNEE</joint_name>
       <topic>/model/my_quadruped/joint/FL_KNEE/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>FR_ABAD</joint_name>
       <topic>/model/my_quadruped/joint/FR_ABAD/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>FR_HIP</joint_name>
       <topic>/model/my_quadruped/joint/FR_HIP/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>FR_KNEE</joint_name>
       <topic>/model/my_quadruped/joint/FR_KNEE/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>BL_ABAD</joint_name>
       <topic>/model/my_quadruped/joint/BL_ABAD/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>BL_HIP</joint_name>
       <topic>/model/my_quadruped/joint/BL_HIP/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>BL_KNEE</joint_name>
       <topic>/model/my_quadruped/joint/BL_KNEE/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>BR_ABAD</joint_name>
       <topic>/model/my_quadruped/joint/BR_ABAD/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>BR_HIP</joint_name>
       <topic>/model/my_quadruped/joint/BR_HIP/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>BR_KNEE</joint_name>
       <topic>/model/my_quadruped/joint/BR_KNEE/cmd_pos</topic>
-      <p_gain>50</p_gain><d_gain>2</d_gain>
+      <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
   </model>

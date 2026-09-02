@@ -1,0 +1,33 @@
+logging this run to run_log_turn_test.txt (same folder)
+waiting for the drop to settle...
+landed, pitch = 0.00 deg  roll = 0.00 deg
+--- crouch ---
+============================================================
+ scripted test: forward walk -> in-place rotation -> back walk -> combined linear+angular
+============================================================
+--- phase: forward walk  (vx=+0.200 m/s, turn=+0.00) ---
+PHASE START: forward walk vx=+0.200 turn=+0.00
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.009  body_xyz=[0.009604728048807258, -0.0007813756663876077, 0.3586275485180934]  pitch=+0.0deg  roll=-0.1deg  roll_term=-0.03deg  yaw=-2.2deg  abad={FL:-0.0 FR:-0.0 BL:-0.0 BR:-0.0}
+  vx_target=+0.058  turn_target=+0.00  speed_xy=0.083  body_xyz=[0.007972797861864047, -0.009529771217978766, 0.3497786494220436]  pitch=-2.6deg  roll=+1.1deg  roll_term=+0.30deg  yaw=+1.8deg  abad={FL:+0.3 FR:+0.3 BL:+0.3 BR:+0.3}
+  vx_target=+0.120  turn_target=+0.00  speed_xy=0.165  body_xyz=[0.017444509218126562, -0.010743849473229957, 0.35189512303690645]  pitch=-1.4deg  roll=+0.9deg  roll_term=+0.26deg  yaw=-1.1deg  abad={FL:+0.3 FR:+0.3 BL:+0.3 BR:+0.3}
+  vx_target=+0.178  turn_target=+0.00  speed_xy=0.092  body_xyz=[0.030620949148987723, 0.01458558557823906, 0.3470563205505594]  pitch=-7.2deg  roll=-2.1deg  roll_term=-0.55deg  yaw=-0.3deg  abad={FL:-0.6 FR:-0.6 BL:-0.6 BR:-0.6}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.087  body_xyz=[0.06885171583559638, 0.022467368919179036, 0.33838058559650674]  pitch=+0.2deg  roll=-0.9deg  roll_term=-0.25deg  yaw=+14.4deg  abad={FL:-0.2 FR:-0.2 BL:-0.2 BR:-0.2}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.114  body_xyz=[0.0797278919369502, 0.04176770372126237, 0.3380542738606979]  pitch=-1.5deg  roll=-2.5deg  roll_term=-0.76deg  yaw=+13.3deg  abad={FL:-0.8 FR:-0.8 BL:-0.8 BR:-0.8}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.117  body_xyz=[0.10520049728788393, -0.0027040645480648695, 0.3125293653348881]  pitch=-5.1deg  roll=+2.8deg  roll_term=+0.77deg  yaw=+3.1deg  abad={FL:+0.8 FR:+0.8 BL:+0.8 BR:+0.8}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.112  body_xyz=[0.08595751119142243, 0.002266395853184361, 0.3349989894055874]  pitch=-15.1deg  roll=+3.0deg  roll_term=+0.93deg  yaw=+7.9deg  abad={FL:+0.9 FR:+0.9 BL:+0.9 BR:+0.9}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.117  body_xyz=[0.13664588227972319, 0.022404541492752186, 0.3429780210862894]  pitch=-4.8deg  roll=+2.6deg  roll_term=+0.79deg  yaw=+13.8deg  abad={FL:+0.8 FR:+0.8 BL:+0.8 BR:+0.8}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.116  body_xyz=[0.17466880997851839, 0.06115719470246072, 0.33556370940776625]  pitch=-3.3deg  roll=-0.9deg  roll_term=-0.26deg  yaw=+8.8deg  abad={FL:-0.3 FR:-0.3 BL:-0.3 BR:-0.3}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.091  body_xyz=[0.20204636996176645, 0.046124693058203964, 0.3345117553604712]  pitch=+0.7deg  roll=+1.8deg  roll_term=+0.58deg  yaw=+11.6deg  abad={FL:+0.6 FR:+0.6 BL:+0.6 BR:+0.6}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.124  body_xyz=[0.1772011699740408, 0.07938817339346795, 0.3174618259481306]  pitch=-6.1deg  roll=-3.6deg  roll_term=-1.02deg  yaw=+12.8deg  abad={FL:-1.0 FR:-1.0 BL:-1.0 BR:-1.0}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.151  body_xyz=[0.13021052799332392, 0.06144808116953782, 0.3332126077764347]  pitch=-16.9deg  roll=-2.5deg  roll_term=-0.80deg  yaw=+6.0deg  abad={FL:-0.8 FR:-0.8 BL:-0.8 BR:-0.8}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.090  body_xyz=[0.14395299010300944, 0.032793525992697345, 0.3253837869379131]  pitch=-7.6deg  roll=+0.1deg  roll_term=+0.02deg  yaw=+4.1deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+    [forward walk] dx=+0.124 dy=+0.026 dist=0.126m  net_yaw=+3.4deg  avg_speed=0.031 m/s  avg_yaw_rate=+0.8 deg/s
+PHASE END: forward walk
+!!! SAFETY ABORT: |pitch|=-25.0 deg  |roll|=1.5 deg exceeded 25.0 deg !!!
+--- phase: in-place rotation  (vx=+0.000 m/s, turn=+1.00) ---
+PHASE START: in-place rotation vx=+0.000 turn=+1.00
+    [in-place rotation] dx=+0.000 dy=+0.000 dist=0.000m  net_yaw=+0.0deg  avg_speed=0.000 m/s  avg_yaw_rate=+0.0 deg/s  *** ABORTED (fell/flipped during this phase) ***
+PHASE END: in-place rotation
+--- stopping: ramping targets to zero ---
+sequence stopped early (safety abort) during phase: in-place rotation
+turn_test.py exiting
