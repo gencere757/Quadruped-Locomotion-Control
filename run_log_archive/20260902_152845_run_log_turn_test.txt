@@ -1,0 +1,21 @@
+logging this run to run_log_turn_test.txt (same folder)
+waiting for the drop to settle...
+landed, pitch = 0.00 deg  roll = 0.00 deg
+--- crouch ---
+============================================================
+ scripted test: forward walk -> in-place rotation -> back walk -> combined linear+angular
+============================================================
+--- phase: forward walk  (vx=+0.200 m/s, turn=+0.00) ---
+PHASE START: forward walk vx=+0.200 turn=+0.00
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.245  body_xyz=[0.08372788529306341, 0.004064751775131478, 0.33380001483971333]  pitch=+2.0deg  roll=-0.1deg  roll_term=-0.03deg  yaw=-0.4deg  abad={FL:-0.0 FR:-0.0 BL:-0.0 BR:-0.0}
+  vx_target=+0.058  turn_target=+0.00  speed_xy=0.155  body_xyz=[0.17856606523343074, -0.006114011386005226, 0.3260846577340942]  pitch=+16.8deg  roll=+2.3deg  roll_term=+0.59deg  yaw=+3.4deg  abad={FL:+0.6 FR:+0.6 BL:+0.6 BR:+0.6}
+  vx_target=+0.120  turn_target=+0.00  speed_xy=0.138  body_xyz=[0.1796164091977931, 0.00039309365146619985, 0.3326171317758243]  pitch=+1.3deg  roll=+0.1deg  roll_term=+0.02deg  yaw=+2.9deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.179  turn_target=+0.00  speed_xy=0.054  body_xyz=[0.19242528346224302, 0.01540355886693339, 0.34564000303955533]  pitch=+21.3deg  roll=-1.7deg  roll_term=-0.50deg  yaw=+0.1deg  abad={FL:-0.5 FR:-0.5 BL:-0.5 BR:-0.5}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.036  body_xyz=[0.2130842691099251, 0.011832594065523526, 0.32699339347956613]  pitch=+16.5deg  roll=-0.1deg  roll_term=-0.21deg  yaw=+0.7deg  abad={FL:-0.2 FR:-0.2 BL:-0.2 BR:-0.2}
+  vx_target=+0.200  turn_target=+0.00  speed_xy=0.040  body_xyz=[0.21096435721874218, 0.013090130438209517, 0.3266145302218511]  pitch=+3.6deg  roll=+0.1deg  roll_term=-0.37deg  yaw=+10.3deg  abad={FL:-0.4 FR:-0.4 BL:-0.4 BR:-0.4}
+!!! SAFETY ABORT: |pitch|=26.4 deg  |roll|=2.2 deg exceeded 25.0 deg !!!
+    [forward walk] dx=+0.172 dy=-0.011 dist=0.172m  net_yaw=+6.3deg  avg_speed=0.098 m/s  avg_yaw_rate=+3.5 deg/s  *** ABORTED (fell/flipped during this phase) ***
+PHASE END: forward walk
+--- stopping: ramping targets to zero ---
+sequence stopped early (safety abort) during phase: forward walk
+turn_test.py exiting

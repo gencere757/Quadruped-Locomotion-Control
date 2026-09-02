@@ -1,0 +1,19 @@
+logging this run to run_log_turn_test.txt (same folder)
+waiting for the drop to settle...
+landed, pitch = 0.00 deg  roll = 0.00 deg
+--- crouch ---
+============================================================
+ scripted test: forward walk -> in-place rotation -> back walk -> combined linear+angular
+============================================================
+--- phase: forward walk  (vx=+0.200 m/s, turn=+0.00) ---
+PHASE START: forward walk vx=+0.200 turn=+0.00
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.162  body_xyz=[-0.20462149823148632, 0.009833583889099877, 0.3402935484662109]  pitch=-6.2deg  roll=-0.6deg  roll_term=-0.15deg  yaw=+0.2deg  abad={FL:-0.1 FR:-0.1 BL:-0.1 BR:-0.1}
+  vx_target=+0.063  turn_target=+0.00  speed_xy=0.188  body_xyz=[-0.23702076311883025, 0.016310236600522103, 0.3286795548546587]  pitch=-1.1deg  roll=-2.4deg  roll_term=-0.73deg  yaw=+5.0deg  abad={FL:-0.7 FR:-0.7 BL:-0.7 BR:-0.7}
+  vx_target=+0.125  turn_target=+0.00  speed_xy=0.332  body_xyz=[-0.28267507025824246, 0.004473532256442631, 0.340664709353164]  pitch=+9.5deg  roll=+0.8deg  roll_term=+0.25deg  yaw=+4.8deg  abad={FL:+0.3 FR:+0.3 BL:+0.3 BR:+0.3}
+  vx_target=+0.183  turn_target=+0.00  speed_xy=0.314  body_xyz=[-0.3520685631271887, 0.009399718030809216, 0.3168350542525497]  pitch=+5.4deg  roll=-1.1deg  roll_term=-0.30deg  yaw=+7.0deg  abad={FL:-0.3 FR:-0.3 BL:-0.3 BR:-0.3}
+!!! SAFETY ABORT: |pitch|=-25.6 deg  |roll|=3.2 deg exceeded 25.0 deg !!!
+    [forward walk] dx=-0.184 dy=-0.029 dist=0.186m  net_yaw=+7.9deg  avg_speed=0.154 m/s  avg_yaw_rate=+6.5 deg/s  *** ABORTED (fell/flipped during this phase) ***
+PHASE END: forward walk
+--- stopping: ramping targets to zero ---
+sequence stopped early (safety abort) during phase: forward walk
+turn_test.py exiting

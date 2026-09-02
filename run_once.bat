@@ -4,10 +4,18 @@ REM Runs the Gazebo sim exactly ONCE: launches gz-sim headless, waits
 REM for it to load, resets the world, runs trot_demo.py a single
 REM time, then kills every gz-sim-related process and exits.
 REM
-REM v3: switched target script to trot_demo.py (the crawl gait's own AUTOPING loop is paused
-REM while this one runs the trot gait's yaw-sign fix cycle instead - do not run both loops at
-REM once, they'd launch two gz-sim instances against the same world1.sdf and reproduce the
-REM exact collision/corruption kill_gz.ps1 was built to prevent).
+REM v5: back to trot_demo.py - v4 (switching to champgait_wave.py) was reverted within minutes, before
+REM a single run even happened. Do NOT run notify_loop_turn.bat at the same time as this - two gz-sim
+REM instances against the same world1.sdf collide/corrupt each other.
+REM
+REM v4: switched target back to champgait_wave.py - going back to the statically-stable wave gait as
+REM the first thing to get walking on the new (much heavier) CAD export, instead of continuing on the
+REM dynamic trot gait (manual_control.py/turn_test.py) this whole debugging thread had moved to.
+REM
+REM v3: switched target script to trot_demo.py (the crawl gait's own AUTOPING loop was paused
+REM while that one ran instead - do not run both loops at once, they'd launch two gz-sim instances
+REM against the same world1.sdf and reproduce the exact collision/corruption kill_gz.ps1 was built
+REM to prevent).
 REM
 REM v2: kill step now matches by command line (world1.sdf) instead of
 REM walking a process tree from a captured PID - the PID-tree approach

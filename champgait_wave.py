@@ -6,10 +6,27 @@ import math
 import threading
 import time
 import sys
+import os
+import shutil
+import datetime
 
 # tee all print() output to a log file as well as the console, so it can be read back
 # without copy/pasting - always the same filename, overwritten each run
-_log_file = open("run_log_wave.txt", "w")
+#
+# Archive the previous run's log before truncating it (same pattern now used by manual_control.py/
+# turn_test.py/trot_demo.py) - copies go in run_log_archive/, timestamped; run_log_wave.txt itself
+# keeps meaning "the live/most recent run" for anything that reads it.
+_LOG_NAME = "run_log_wave.txt"
+_ARCHIVE_DIR = "run_log_archive"
+try:
+    os.makedirs(_ARCHIVE_DIR, exist_ok=True)
+    if os.path.exists(_LOG_NAME):
+        _ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        shutil.copy2(_LOG_NAME, os.path.join(_ARCHIVE_DIR, f"{_ts}_{_LOG_NAME}"))
+except OSError:
+    pass
+
+_log_file = open(_LOG_NAME, "w")
 
 class _Tee:
     def __init__(self, *streams):
@@ -403,6 +420,16 @@ def all_foot_fx():
 
 # --- gait constants - unchanged from champgait.py v6.11 (STANCE_FZ, step lengths, swing heights,
 # reach budget - all already tuned/validated against this leg's real geometry) -------------------
+#
+# HEADS UP before the next run: this whole file (including PITCH_RATE_DAMPING's own comment below,
+# "the joint gains this compensates for are back at their original, realistic p_gain=50/d_gain=2")
+# was tuned against a MUCH lighter CAD export - the current model.sdf has since been re-exported with
+# thigh+shank mass roughly tripled and the ABAD/hip unit ~7x heavier, and its p_gain/d_gain were
+# re-tuned to 265/10.6 for a completely different (trot) gait's needs, not this one's. Nothing in this
+# file has been touched since either of those changes. First run after picking this back up should be
+# treated as a from-scratch check against the new mass+gains, not an assumption that the old tuning
+# (GAIT_PERIOD, STEP_LENGTH, SWAY_AMPLITUDE, X_LEAN_AMPLITUDE, the correction-loop constants, all of
+# it) still holds - see run_log_wave.txt for what actually happens before touching any of it.
 STANCE_FZ = -0.34
 STEP_LENGTH_FRONT = 0.06
 STEP_LENGTH_BACK = 0.08

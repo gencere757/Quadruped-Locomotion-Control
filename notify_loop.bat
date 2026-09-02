@@ -19,7 +19,17 @@ REM      or focus the window first.
 REM   4. If you resize/move the window or change display scaling, the
 REM      coordinates go stale - rerun find_coords.bat to get new ones.
 REM
-REM v2: pointed at run_once.bat's new target (trot_demo.py) - message text updated to match.
+REM v4: back to trot_demo.py - v3 (switching to champgait_wave.py) was reverted within minutes,
+REM before a single run even happened. Kept the widened 10s gap from v3 (was 3s originally) since
+REM that fix is worth keeping regardless of which script is the target.
+REM
+REM v3: switched to run_once.bat's then-target (champgait_wave.py) - message text updated to
+REM match. Only run ONE of the gz-sim loops at a time (this vs. notify_loop_turn.bat) - see
+REM run_once.bat's own notes. Also widened the gap below from 3s to 10s (matches
+REM notify_loop_turn.bat's own fix) - back-to-back gz-sim launches with too little gap between them
+REM caused abnormal early deaths there.
+REM
+REM v2: pointed at run_once.bat's previous target (trot_demo.py) - message text updated to match.
 REM Only run ONE of these loops at a time (trot vs. the crawl gait) - see run_once.bat's v3 note.
 REM
 REM Stop the loop any time with Ctrl+C in this window.
@@ -35,5 +45,5 @@ call C:\gz-ws\run_once.bat
 echo === pinging chat window ===
 powershell -NoProfile -ExecutionPolicy Bypass -File "C:\gz-ws\click_and_type.ps1" -X %CHAT_X% -Y %CHAT_Y% -Message "%MESSAGE%"
 
-timeout /t 3 /nobreak >nul
+timeout /t 10 /nobreak >nul
 goto loop

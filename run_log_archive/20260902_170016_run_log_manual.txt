@@ -1,0 +1,15 @@
+logging this run to run_log_manual.txt (same folder)
+waiting for the drop to settle...
+landed, pitch = 0.00 deg  roll = 0.00 deg
+--- crouch ---
+============================================================
+ W/S = forward/back   A/D = turn left/right   SPACE = stop
+ Q or ESC = quit (ramps to a stop, then a safe stance)
+============================================================
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.000  body_xyz=[-0.0006902765769561223, 0.0002914640409462952, 0.3595001786450926]  pitch=-0.0deg  roll=+0.1deg  roll_term=+0.02deg  yaw=-0.5deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.000  body_xyz=[-0.0006912775822249117, 0.0002913565732078325, 0.35950026426941273]  pitch=-0.0deg  roll=+0.1deg  roll_term=+0.02deg  yaw=-0.5deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.000  body_xyz=[-0.0006922791351689909, 0.00029139421865912726, 0.35950022781439034]  pitch=-0.0deg  roll=+0.1deg  roll_term=+0.02deg  yaw=-0.5deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.000  body_xyz=[-0.000693279188168503, 0.00029143131810956883, 0.3595001878636814]  pitch=-0.0deg  roll=+0.1deg  roll_term=+0.02deg  yaw=-0.5deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.000  body_xyz=[-0.0006942795292461927, 0.0002914684763328461, 0.3595001478147655]  pitch=-0.0deg  roll=+0.1deg  roll_term=+0.02deg  yaw=-0.5deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.000  body_xyz=[-0.0006952798679403298, 0.00029150570247872337, 0.3595001078118559]  pitch=-0.0deg  roll=+0.1deg  roll_term=+0.02deg  yaw=-0.5deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
+  vx_target=+0.000  turn_target=+0.00  speed_xy=0.000  body_xyz=[-0.0006952798679403298, 0.00029150570247872337, 0.3595001078118559]  pitch=-0.0deg  roll=+0.1deg  roll_term=+0.02deg  yaw=-0.5deg  abad={FL:+0.0 FR:+0.0 BL:+0.0 BR:+0.0}
