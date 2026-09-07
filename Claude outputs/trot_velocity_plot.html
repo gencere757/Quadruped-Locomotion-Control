@@ -1,0 +1,247 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Trot velocity trace</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --axis:           #c3c2b7;
+    --series-1:       #2a78d6;
+    --critical:       #d03b3b;
+    --critical-wash:  rgba(208,59,59,0.08);
+    --border:         rgba(11,11,11,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --axis:           #383835;
+      --series-1:       #3987e5;
+      --critical:       #e66767;
+      --critical-wash:  rgba(230,103,103,0.12);
+      --border:         rgba(255,255,255,0.10);
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --axis:           #383835;
+    --series-1:       #3987e5;
+    --critical:       #e66767;
+    --critical-wash:  rgba(230,103,103,0.12);
+    --border:         rgba(255,255,255,0.10);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .viz-root { background: var(--page); padding: 24px; min-height: 100vh; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 24px 16px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 2px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 18px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis-label { fill: var(--text-muted); font-size: 11px; }
+  .axis-line { stroke: var(--axis); stroke-width: 1; }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .zero-line { stroke: var(--axis); stroke-width: 1.5; }
+  .target-line { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .neg-band { fill: var(--critical-wash); }
+  .series-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+  .dot-neg { fill: var(--critical); }
+  .ref-label { fill: var(--text-muted); font-size: 11px; }
+  .legend-row { display: flex; align-items: center; gap: 16px; margin: 4px 0 14px; font-size: 12px; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 2px; border-radius: 1px; }
+  .swatch.target { background: var(--text-muted); }
+  .swatch.zero { background: var(--axis); }
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--text-primary); color: var(--surface-1);
+    font-size: 11px; padding: 5px 8px; border-radius: 6px; transform: translate(-50%, -115%);
+    white-space: nowrap; opacity: 0; transition: opacity 0.08s;
+  }
+  .crosshair { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 2 2; opacity: 0; }
+  .chart-wrap { position: relative; }
+  .toggle-btn {
+    font-size: 11px; color: var(--text-secondary); background: transparent; border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 9px; cursor: pointer; font-family: inherit;
+  }
+  .toggle-btn:hover { background: var(--critical-wash); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+  th, td { text-align: right; padding: 4px 8px; font-variant-numeric: tabular-nums; color: var(--text-secondary); border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; color: var(--text-primary); }
+  th { color: var(--text-muted); font-weight: 500; }
+  td.neg { color: var(--critical); font-weight: 600; }
+  .foot { font-size: 11px; color: var(--text-muted); margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <div class="card">
+    <h1>Forward velocity during trot</h1>
+    <p class="subtitle">Signed forward speed (vx), fine-grained (0.06s) &middot; target 0.150 m/s &middot; 8th ff run &middot; a worse outlier this time (min vx -0.20, pitch -8.1&deg; but a +5.3&deg; positive swing too) &middot; 8-run avg still ~0.14, one bad run within normal variance</p>
+    <div class="legend-row">
+      <div class="legend-item"><span class="swatch" style="background:var(--series-1)"></span>vx (forward velocity)</div>
+      <div class="legend-item"><span class="swatch target"></span>target (0.150 m/s)</div>
+      <div class="legend-item"><span class="swatch zero"></span>zero</div>
+      <div style="flex:1"></div>
+      <button class="toggle-btn" id="toggleTable">Show table</button>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" viewBox="0 0 700 320" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <table id="dataTable" style="display:none"></table>
+    <p class="foot">Velocity computed from consecutive body-position samples (≈0.06s apart, fine-grained logging); negative dips reflect real backward motion, tightly phase-locked to each pair's swing (confirmed via pitch overlay in the underlying data).</p>
+  </div>
+</div>
+<script>
+const data = [{"t": 0.0, "vx": 0.0, "speed_xy_reported": 0.009, "pitch": 0.11}, {"t": 0.06, "vx": -0.0181, "speed_xy_reported": 0.077, "pitch": 0.2}, {"t": 0.12, "vx": -0.0513, "speed_xy_reported": 0.038, "pitch": -0.66}, {"t": 0.18, "vx": -0.0033, "speed_xy_reported": 0.029, "pitch": -2.95}, {"t": 0.24, "vx": 0.0269, "speed_xy_reported": 0.065, "pitch": -5.47}, {"t": 0.31, "vx": 0.0356, "speed_xy_reported": 0.047, "pitch": -6.09}, {"t": 0.37, "vx": 0.0552, "speed_xy_reported": 0.081, "pitch": -4.78}, {"t": 0.43, "vx": 0.1232, "speed_xy_reported": 0.163, "pitch": -2.1}, {"t": 0.49, "vx": 0.1762, "speed_xy_reported": 0.241, "pitch": -0.19}, {"t": 0.55, "vx": 0.3391, "speed_xy_reported": 0.313, "pitch": 0.44}, {"t": 0.61, "vx": 0.2475, "speed_xy_reported": 0.273, "pitch": 0.23}, {"t": 0.67, "vx": 0.2909, "speed_xy_reported": 0.256, "pitch": -0.15}, {"t": 0.73, "vx": 0.2842, "speed_xy_reported": 0.258, "pitch": -0.15}, {"t": 0.8, "vx": 0.1929, "speed_xy_reported": 0.269, "pitch": 1.34}, {"t": 0.86, "vx": 0.3224, "speed_xy_reported": 0.298, "pitch": 3.83}, {"t": 0.92, "vx": 0.1808, "speed_xy_reported": 0.171, "pitch": 5.28}, {"t": 0.98, "vx": 0.0762, "speed_xy_reported": 0.036, "pitch": 4.77}, {"t": 1.04, "vx": -0.0529, "speed_xy_reported": 0.119, "pitch": 3.15}, {"t": 1.1, "vx": -0.1052, "speed_xy_reported": 0.225, "pitch": 0.27}, {"t": 1.16, "vx": -0.1663, "speed_xy_reported": 0.162, "pitch": -2.22}, {"t": 1.22, "vx": -0.0985, "speed_xy_reported": 0.116, "pitch": -4.99}, {"t": 1.29, "vx": -0.114, "speed_xy_reported": 0.122, "pitch": -6.21}, {"t": 1.35, "vx": -0.1581, "speed_xy_reported": 0.162, "pitch": -5.72}, {"t": 1.41, "vx": -0.1555, "speed_xy_reported": 0.233, "pitch": -3.38}, {"t": 1.47, "vx": -0.2026, "speed_xy_reported": 0.236, "pitch": -2.14}, {"t": 1.53, "vx": -0.0714, "speed_xy_reported": 0.078, "pitch": -4.27}, {"t": 1.59, "vx": 0.081, "speed_xy_reported": 0.162, "pitch": -6.97}, {"t": 1.65, "vx": 0.2448, "speed_xy_reported": 0.227, "pitch": -8.12}, {"t": 1.71, "vx": 0.2196, "speed_xy_reported": 0.267, "pitch": -5.52}, {"t": 1.78, "vx": 0.234, "speed_xy_reported": 0.25, "pitch": -4.02}, {"t": 1.84, "vx": 0.151, "speed_xy_reported": 0.164, "pitch": -2.01}, {"t": 1.9, "vx": 0.0902, "speed_xy_reported": 0.063, "pitch": -0.34}, {"t": 1.96, "vx": 0.006, "speed_xy_reported": 0.073, "pitch": 0.03}, {"t": 2.02, "vx": 0.0606, "speed_xy_reported": 0.12, "pitch": -2.41}, {"t": 2.08, "vx": 0.1751, "speed_xy_reported": 0.197, "pitch": -3.94}, {"t": 2.14, "vx": 0.2187, "speed_xy_reported": 0.294, "pitch": -4.19}, {"t": 2.2, "vx": 0.3108, "speed_xy_reported": 0.257, "pitch": -4.85}, {"t": 2.27, "vx": 0.2308, "speed_xy_reported": 0.225, "pitch": -4.7}, {"t": 2.33, "vx": 0.1804, "speed_xy_reported": 0.212, "pitch": -2.72}, {"t": 2.39, "vx": 0.2429, "speed_xy_reported": 0.218, "pitch": 0.29}, {"t": 2.45, "vx": 0.131, "speed_xy_reported": 0.123, "pitch": 1.96}, {"t": 2.51, "vx": 0.0559, "speed_xy_reported": 0.042, "pitch": 1.88}, {"t": 2.57, "vx": -0.0292, "speed_xy_reported": 0.081, "pitch": 0.37}, {"t": 2.64, "vx": -0.0476, "speed_xy_reported": 0.057, "pitch": -2.5}, {"t": 2.7, "vx": -0.0424, "speed_xy_reported": 0.024, "pitch": -5.09}, {"t": 2.76, "vx": -0.0094, "speed_xy_reported": 0.046, "pitch": -6.69}, {"t": 2.82, "vx": -0.0074, "speed_xy_reported": 0.086, "pitch": -6.4}, {"t": 2.88, "vx": -0.0491, "speed_xy_reported": 0.071, "pitch": -5.14}, {"t": 2.94, "vx": -0.076, "speed_xy_reported": 0.138, "pitch": -3.78}, {"t": 3.0, "vx": -0.0745, "speed_xy_reported": 0.155, "pitch": -3.18}, {"t": 3.06, "vx": 0.0487, "speed_xy_reported": 0.14, "pitch": -5.56}, {"t": 3.12, "vx": 0.2055, "speed_xy_reported": 0.256, "pitch": -7.15}, {"t": 3.19, "vx": 0.2566, "speed_xy_reported": 0.301, "pitch": -6.31}, {"t": 3.25, "vx": 0.1944, "speed_xy_reported": 0.256, "pitch": -5.61}, {"t": 3.31, "vx": 0.149, "speed_xy_reported": 0.083, "pitch": -4.3}, {"t": 3.37, "vx": -0.0, "speed_xy_reported": 0.057, "pitch": -2.96}, {"t": 3.43, "vx": -0.1158, "speed_xy_reported": 0.217, "pitch": -2.32}, {"t": 3.49, "vx": -0.1212, "speed_xy_reported": 0.213, "pitch": -2.68}];
+const TARGET = 0.150;
+
+const svg = document.getElementById('chart');
+const tooltip = document.getElementById('tooltip');
+const wrap = document.getElementById('chartWrap');
+const W = 700, H = 320;
+const M = { top: 16, right: 16, bottom: 34, left: 44 };
+const plotW = W - M.left - M.right;
+const plotH = H - M.top - M.bottom;
+
+const tMin = 0, tMax = Math.max(...data.map(d => d.t));
+const vMin = Math.min(...data.map(d => d.vx), -0.05);
+const vMax = Math.max(...data.map(d => d.vx), TARGET + 0.05);
+const pad = (vMax - vMin) * 0.08;
+const yMin = vMin - pad, yMax = vMax + pad;
+
+function x(t) { return M.left + (t / tMax) * plotW; }
+function y(v) { return M.top + (1 - (v - yMin) / (yMax - yMin)) * plotH; }
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+// negative-value band (below zero)
+if (yMin < 0) {
+  svg.appendChild(svgEl('rect', {
+    class: 'neg-band', x: M.left, y: y(0), width: plotW, height: y(yMin) - y(0)
+  }));
+}
+
+// gridlines (y ticks)
+const yTickCount = 5;
+const yStep = (yMax - yMin) / yTickCount;
+for (let i = 0; i <= yTickCount; i++) {
+  const v = yMin + i * yStep;
+  const gy = y(v);
+  svg.appendChild(svgEl('line', { class: 'grid-line', x1: M.left, x2: W - M.right, y1: gy, y2: gy }));
+  const label = svgEl('text', { class: 'axis-label', x: M.left - 8, y: gy + 3, 'text-anchor': 'end' });
+  label.textContent = v.toFixed(2);
+  svg.appendChild(label);
+}
+
+// x ticks
+const xTickCount = 6;
+for (let i = 0; i <= xTickCount; i++) {
+  const t = (tMax / xTickCount) * i;
+  const gx = x(t);
+  const label = svgEl('text', { class: 'axis-label', x: gx, y: H - M.bottom + 16, 'text-anchor': 'middle' });
+  label.textContent = t.toFixed(1) + 's';
+  svg.appendChild(label);
+}
+
+// axis line
+svg.appendChild(svgEl('line', { class: 'axis-line', x1: M.left, x2: W - M.right, y1: M.top + plotH, y2: M.top + plotH }));
+
+// zero line
+svg.appendChild(svgEl('line', { class: 'zero-line', x1: M.left, x2: W - M.right, y1: y(0), y2: y(0) }));
+
+// target line
+svg.appendChild(svgEl('line', { class: 'target-line', x1: M.left, x2: W - M.right, y1: y(TARGET), y2: y(TARGET) }));
+const targetLabel = svgEl('text', { class: 'ref-label', x: W - M.right - 4, y: y(TARGET) - 5, 'text-anchor': 'end' });
+targetLabel.textContent = 'target 0.150';
+svg.appendChild(targetLabel);
+
+// series line
+let pathD = '';
+data.forEach((d, i) => {
+  const cmd = i === 0 ? 'M' : 'L';
+  pathD += `${cmd}${x(d.t).toFixed(2)},${y(d.vx).toFixed(2)} `;
+});
+svg.appendChild(svgEl('path', { class: 'series-line', d: pathD }));
+
+// dots
+data.forEach(d => {
+  svg.appendChild(svgEl('circle', {
+    class: 'dot' + (d.vx < 0 ? ' dot-neg' : ''), cx: x(d.t), cy: y(d.vx), r: 4
+  }));
+});
+
+// crosshair
+const crosshair = svgEl('line', { class: 'crosshair', y1: M.top, y2: M.top + plotH });
+svg.appendChild(crosshair);
+
+// hover hit areas
+data.forEach((d, i) => {
+  const hit = svgEl('circle', { cx: x(d.t), cy: y(d.vx), r: 12, fill: 'transparent' });
+  hit.addEventListener('mouseenter', () => {
+    crosshair.setAttribute('x1', x(d.t));
+    crosshair.setAttribute('x2', x(d.t));
+    crosshair.style.opacity = 1;
+    const rect = svg.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const scale = rect.width / W;
+    tooltip.style.left = (x(d.t) * scale) + 'px';
+    tooltip.style.top = (y(d.vx) * scale) + 'px';
+    tooltip.textContent = `t=${d.t.toFixed(2)}s  vx=${d.vx >= 0 ? '+' : ''}${d.vx.toFixed(3)} m/s`;
+    tooltip.style.opacity = 1;
+  });
+  hit.addEventListener('mouseleave', () => {
+    crosshair.style.opacity = 0;
+    tooltip.style.opacity = 0;
+  });
+  svg.appendChild(hit);
+});
+
+// table view
+const table = document.getElementById('dataTable');
+let tableHTML = '<thead><tr><th>t (s)</th><th>vx (m/s)</th><th>speed_xy reported</th></tr></thead><tbody>';
+data.forEach(d => {
+  tableHTML += `<tr><td>${d.t.toFixed(2)}</td><td class="${d.vx < 0 ? 'neg' : ''}">${d.vx >= 0 ? '+' : ''}${d.vx.toFixed(3)}</td><td>${d.speed_xy_reported.toFixed(3)}</td></tr>`;
+});
+tableHTML += '</tbody>';
+table.innerHTML = tableHTML;
+
+document.getElementById('toggleTable').addEventListener('click', (e) => {
+  const showing = table.style.display !== 'none';
+  table.style.display = showing ? 'none' : 'table';
+  document.getElementById('chartWrap').style.display = showing ? 'block' : 'none';
+  e.target.textContent = showing ? 'Show table' : 'Show chart';
+});
+</script>
+</body>
+</html>

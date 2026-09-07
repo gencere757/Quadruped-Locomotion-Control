@@ -1,0 +1,254 @@
+=== LEG_IK / ABAD design note (v4 architecture) ===
+# v4: each leg now has 3 DOF (ABAD, HIP, KNEE). ABAD rotates the whole
+# hip+knee+thigh+shank chain about the body's fore-aft (X) axis - an actual
+# lateral DOF for roll correction, replacing the old differential-foot-height
+# hack (v3 legs had no way to move a foot sideways, so that hack never really
+# had a clean physical meaning).
+#
+# leg_ik's HIP/KNEE math is unchanged - still a 2-link planar IK in the
+# sagittal plane relative to the hip. ABAD is a separate, decoupled DOF: just
+# a small-angle direct joint command, not folded into leg_ik. That matches
+# how the SDF is built - the HIP joint's rotation axis is in the body/model
+# frame, not the ABAD link's frame, so the sagittal-plane swing stays valid
+# at any ABAD angle. ABAD just moves the "shoulder" point sideways/vertically
+# first.
+
+=== latest_pitch_rate / pitch-rate source selection ===
+# pitch rate, used for the D-term in control_loop() (PITCH_RATE_DAMPING). The
+# recurring FR-push tip accelerates (pitch delta roughly doubles each sample)
+# instead of drifting linearly - that's what you'd expect from a pure-P
+# correction that only reacts to accumulated angle and lags a rotation that's
+# still speeding up. A gyro rate is direct and low-noise, way better than
+# differencing our own quaternion-derived pitch, so we prefer the IMU's
+# angular_velocity field if it exists and has data. Can't confirm the exact
+# gz.msgs10 IMU field name/axis convention without the proto handy, so this
+# is defensive: dump the message's fields once on the first callback, and
+# always keep a finite-differenced fallback ready for when the gyro isn't
+# available. Whichever source ends up used, check the printed pitch_rate
+# values in run_log.txt on the first run - it should spike right as pitch
+# runs away during FR's push.
+
+=== body_vel (finite-differenced ground-truth velocity) ===
+# body velocity, finite-differenced from consecutive ground-truth pose samples.
+# Sim-only shortcut (a real robot doesn't get free ground-truth position), but
+# since Pose_V already gives us body_xyz, differencing it is a driftless,
+# no-extra-sensor way to get v_actual for the Raibert/capture-point swing
+# term - no IMU integration and its drift/gravity-compensation headaches.
+# Uses wall-clock time.time() deltas between callbacks, which is fine since
+# the world runs at real_time_factor=1.
+
+=== link_xyz (foot-level instrumentation) ===
+# foot-level instrumentation: track all four shank link positions (not just
+# FR's), keyed by leg name. Names are unscoped per the DEBUG dump below
+# (e.g. 'FR_shank', not 'my_quadruped::FR_shank'). Started as just FR to
+# check the foot-strike hypothesis (that was refuted); now tracking all four
+# so we can compute the actual support polygon (triangle of the three
+# planted feet) instead of just guessing from the pitch trend.
+
+=== _rotate_body_to_world (frame note) ===
+# frame note: Pose_V gives the MODEL's pose ("my_quadruped") relative to the
+# world, but gives each LINK's pose ("FR_shank" etc.) relative to the model -
+# so link_xyz is in the model's local frame, not world. (Giveaway: FR_shank_z
+# reads around -0.19 while body_xyz[2] reads around +0.40 - if both were
+# world-frame that foot would be almost 0.6m below the body, more than the
+# leg is long.) So a foot's local offset needs rotating into world frame
+# (using current pitch/roll, yaw=0 since this gait never yaws and there's no
+# yaw sensor) before adding it to body_xyz. An earlier version compared
+# link_xyz straight against body_xyz and silently mixed frames, giving
+# meaningless ~0.6-0.7m "margins" bigger than the whole robot.
+#
+# Defined here, before pose_callback/node.subscribe, because pose_callback
+# calls this on every message and callbacks can start firing on a background
+# thread as soon as node.subscribe() runs - anything a callback needs has to
+# already exist by then.
+
+=== foot_world_xyz / foot_world_vel ===
+# per-foot world-frame position + velocity, finite-differenced like body_vel.
+# The support-polygon check below already showed the CoM never leaves the
+# footprint of the three planted feet - stayed comfortably inside even as
+# pitch ran away - so this isn't a "walked past the edge of my base" problem.
+# Next thing to check: are the planted feet actually staying put? These are
+# position-servoed (P/D) joints, not force-controlled stance legs, so if a
+# stance leg can't supply enough torque to hold its commanded position once
+# FR fully loads it during push, that foot would slip/lose grip in real
+# physics even though the code still thinks it's a solid support point. A
+# genuinely planted foot should read ~zero world-frame velocity - a spike
+# right as pitch runs away would mean that leg is giving way under load,
+# not a gait/geometry issue.
+
+=== body_accel (inside pose_callback) ===
+                    # acceleration: finite-difference the velocity itself (same dt). Needed for
+                    # the ZMP check below - x_zmp depends on the CoM's horizontal and vertical
+                    # acceleration, not just position/velocity. This is a second derivative of
+                    # noisy position data, so it's noisier than body_vel - that's expected, not
+                    # a bug.
+
+=== support polygon stability checks (overview) ===
+# stability checks against the support polygon - the triangle formed by the
+# three planted feet (everyone except whichever leg is currently lifted/
+# swinging/placing/pushing). Three criteria, same triangle, weakest to
+# strongest:
+#
+# 1. support_status() - static CoM check: is the body's actual (x,y)
+#    position inside the triangle right now? Quasi-static only, says nothing
+#    about momentum/acceleration. Testing showed `inside` stayed True the
+#    whole run, even through a pitch runaway past -25 deg, so "CoM walked
+#    past the edge" isn't what's tipping the robot. Geometry still matters,
+#    but the static check is too weak to catch a dynamic tip - see
+#    zmp_status() and capture_point_status() below, which is what a real
+#    legged-robot stability analysis uses.
+# 2. zmp_status() - Zero Moment Point: accounts for inertial forces (CoM
+#    acceleration). The standard dynamic-tipping criterion - a robot can
+#    have its CoM inside the polygon and still be actively tipping if the
+#    ZMP has left it.
+# 3. capture_point_status() - Capture Point: where the CoM would land if
+#    every leg froze right now. If that's outside the polygon, the current
+#    momentum can't be stopped without a recovery step, even if the ZMP is
+#    still fine.
+
+=== ZMP (Zero Moment Point) derivation ===
+# ZMP (Zero Moment Point) - the real dynamic-tipping criterion. Standard
+# form, dropping the angular-momentum-rate term (dH_y/dt): we don't track
+# each leg's own inertia/angular momentum, and the body is ~8.44kg vs
+# ~0.55kg for all four legs combined, so the linear CoM-acceleration term
+# should dominate. This is a first-order approximation, not full textbook
+# ZMP - noting that rather than pretending it's exact:
+#
+#   x_zmp = x_com - (xdd_com / (zdd_com + g)) * z_com
+#   y_zmp = y_com - (ydd_com / (zdd_com + g)) * z_com
+#
+# Uses body_accel (a second finite difference via body_vel, so noisier than
+# body_vel itself) and body_xyz[2] as z_com - valid since the ground is flat
+# at z=0 and the SDF puts the true CoM within 0.2mm of the body origin,
+# negligible.
+
+=== Capture point derivation ===
+# Capture point: where the CoM would come to rest if every leg's velocity
+# went to zero right now (Pratt et al.) - x_cp = x_com + vx * sqrt(z0/g).
+# Reuses CAPTURE_GAIN (= sqrt(height/g), defined further down by the
+# swing-placement code - same quantity, referenced here by name since Python
+# looks it up at call time and this always runs well after that assignment).
+# If the capture point is already outside the polygon, the current momentum
+# can't be stopped without a recovery step - a fall may already be locked in
+# even if the ZMP still looks fine.
+
+=== CORRECTION_FRACTION ===
+# was 0.3 - bumped up because the full-loop test showed pitch
+                            # outrunning the correction during FR's place/push when it started
+                            # with residual tilt
+
+=== PITCH_RATE_DAMPING ===
+# D-term (rate damping) added on top of the existing P-term. The full-loop
+# test with ZMP/capture-point checks showed FR's push-phase tip is NOT a
+# base-of-support problem - CoM/ZMP/CapturePt all stayed comfortably inside,
+# margins growing, the whole time pitch ran away from -4.87 to -28.7 deg.
+# But that runaway was accelerating (pitch delta roughly doubling each
+# sample), not linear - the signature of a pure-P correction that only
+# reacts to accumulated angle and lags a rotation that's still speeding up.
+# This adds a term proportional to latest_pitch_rate (see imu_callback) so
+# the correction responds to how fast the body is rotating, not just how
+# far it's already tilted.
+#
+# The starting gain is a guess, not derived: during the observed runaway,
+# pitch rate was already ~0.3-0.5 rad/s a few tenths of a second into push.
+# PITCH_RATE_DAMPING=0.15 gives a modest correction of that size without
+# dominating the P-term (which has headroom - it wasn't saturating
+# MAX_CORRECTION_RAD at the pitch angles seen before the old runaway
+# started). Tune based on the theta_p/theta_d breakdown in run_log.txt.
+
+=== ABAD sign calibration (roll correction) ===
+# roll correction via the real ABAD DOF (replaces the old differential-
+# foot-height hack). Calibrated from the per-leg ABAD sweep: all four legs
+# showed the same sign relationship (positive ABAD -> negative roll,
+# negative -> positive roll), so one uniform correction works - no
+# left/right split needed.
+
+=== reverted integral term (postmortem) ===
+# note: tried adding an integral term (pitch_integral/roll_integral) to kill
+# the steady-state lean left over after each step. Reverted - it wound up
+# during BR's step (pitch stayed net-positive) and carried that stale
+# positive bias into FR's place, where pitch flips hard negative, so the
+# I-term fought the correction exactly when it needed to be strongest and
+# the tip started earlier (during place instead of during push). Integral
+# control isn't a great fit for legged balance anyway - it's meant for
+# holding a fixed setpoint against a steady disturbance, not a sequence of
+# fast, direction-reversing per-step transients. Back to pure P; the real
+# fix belongs in the gait/footfall geometry, not the orientation loop.
+
+=== FLIP_LIMIT_DEG (safety watchdog) ===
+# safety watchdog: once the robot tips past this angle, stop advancing the
+# gait instead of grinding through the rest of the phases (and the log) on a
+# robot that's already flipped over. Joint commands keep publishing (they're
+# clamped, so they stay bounded) - this only stops step_leg()/move_feet()/
+# move_abad()/watch() from moving to the next phase.
+
+=== last_theta_terms (diagnostic breakdown) ===
+# diagnostic breakdown of the last theta computed - P term, D term, combined
+# (pre- and post-clamp) - so run_log.txt shows whether the D-term is doing
+# anything sensible instead of just trusting it blindly. Updated every
+# control_loop tick (50Hz) but only printed at the same checkpoints
+# move_feet()/watch() already use, so it doesn't flood the log.
+
+=== ABAD sign note (inside control_loop) ===
+            # positive ABAD -> negative roll (confirmed for all 4 legs in the calibration
+            # sweep), so a positive roll_term counteracts a positive roll disturbance -
+            # applied the same way to every leg, no per-leg sign
+
+=== SWING_MAG_FRONT / swing-push split front vs back ===
+# swing/push split front vs back - the last full-loop run showed pitch (not
+# roll) blowing up specifically during FR's place->push transition: that's
+# when a front foot goes from swinging free to bearing load and getting
+# dragged back to propel the body, the highest-force moment in the whole
+# step. Shrinking how far the front feet reach out and drag back gives that
+# moment less leverage to tip the body forward, and slowing the transfer
+# down gives the pitch correction more time to react. Back legs (BR) already
+# stepped clean, so they're untouched.
+
+=== PUSH_MAG_FRONT ===
+# PUSH_MAG_FRONT halved again (0.02 -> 0.01): the FR_shank_z trace showed no
+# foot-strike/contact spike - the foot tracks its commanded path smoothly,
+# and pitch was already at ~-4 deg by the end of place (support down to just
+# FL/BL/BR) before push even starts. Push then adds real propulsive torque -
+# FR's foot dragged back under full load, the only leg driving at that
+# instant - on top of that already-reduced margin. Less push magnitude means
+# less torque asked of that one corner. Trades some forward distance per
+# step for stability.
+
+=== Raibert / capture-point swing placement ===
+# Raibert heuristic + capture-point swing placement (Cheetah 3 paper, eq. 6)
+# foot_target_x = nominal_swing_mag + CAPTURE_GAIN * (v_actual - v_desired)
+# v_desired = 0 here since this is a scripted step sequence, not a
+# continuous target-speed walk - the nominal SWING_MAG constants already
+# encode the intended stride reach. This term just adds a correction: if the
+# body already has fore-aft momentum when a leg commits to its swing target,
+# reach that foot further out in the direction of travel so it lands
+# under/ahead of the advancing CoM (a bigger base of support right when it's
+# needed), instead of always using the same blind reach.
+#
+# CAPTURE_GAIN = sqrt(height / gravity). Height is the settled crouch height
+# (~0.40 m, from the landed body_xyz z in run_log.txt).
+
+=== CAPTURE_SIGN (caution note) ===
+# caution: the sign relationship between foot_target's local fx and
+# world-frame body_vel[0] hasn't been empirically checked (the robot never
+# yaws in this gait, so world x ~= body x, but which direction counts as
+# "positive fx" in the leg_ik/rotate convention vs +x world hasn't been
+# verified against real data). Starting at +1. The per-leg diagnostic print
+# below shows v_x and the resulting swing_mag adjustment every run - if the
+# correction makes things worse, or the sign looks backwards, flip this to
+# -1.0 rather than assuming it's right.
+
+=== full 4-leg gait loop (BR axis bug fix note) ===
+# full 4-leg gait loop - the real test. The single-leg BR step (axis bug
+# fixed, ABAD roll correction active) survived cleanly: roll peaked at
+# +2.86 deg during lift/swing but the correction pulled it back to +0.20 deg
+# by the end of the step, instead of accumulating like it used to with the
+# old differential-foot-height hack. That's exactly the scenario that used
+# to kill the full loop (residual roll from BR's step compounding into FR's
+# push in cycle 1), so this is the test that actually matters.
+
+=== INTER_LEG_SETTLE ===
+# extra pause between legs so pitch/roll correction can decay the
+                          # residual disturbance before the next leg's demanding phases start -
+                          # the last run showed FR's place/push failing because it started from
+                          # BR's leftover +2.4deg pitch instead of a flat baseline

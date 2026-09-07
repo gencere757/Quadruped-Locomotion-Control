@@ -1,0 +1,88 @@
+=== LOG ARCHIVING ===
+# log everything to console + a timestamped file, same setup as trot_demo.py's run_log_trot.txt /
+# manual_control.py's run_log_manual.txt.
+#
+# Archive the previous run's log before we overwrite it. The auto-ping loop runs this script back
+# to back with nothing in between, so without archiving, each run would silently wipe the last
+# one's results - that actually happened: results were only visible for the few seconds between
+# runs and got lost if nobody was watching. Archives are copies (not moves) into run_log_archive/,
+# timestamped, so run_log_turn_test.txt still always means "the latest run" for anything that reads
+# it (the ping/grep workflow, run_turn_test_once.bat, etc).
+
+=== TROT_PERIOD ===
+# kept in sync w/ manual_control.py's comment on this constant. Cut from
+                            # 1.6s to shorten/speed up strides at the same commanded vx - falls kept
+                            # happening in plain walking (turn=0.00) no matter what p/d gains we tried,
+                            # which pointed at per-stride disturbance from the now much heavier legs,
+                            # not a turn-logic or joint-tracking-gain problem.
+
+=== MAX_VX ===
+# was 0.20, kept in sync w/ manual_control.py's comment on this constant. Cuts stride
+               # disturbance further to give real margin under the 25deg abort line.
+
+=== TURN_VX_GAIN ===
+# kept in sync w/ manual_control.py's comment on this constant. With
+                            # TROT_PERIOD=1.0 above, forward walk / rotation / back walk all clear
+                            # cleanly now - that's what fixed the plain-walking falls. Combined
+                            # linear+angular is the only phase still failing, and it fails fast (pitch
+                            # swings -10/+14/-14deg in about 1.8s then aborts) - still too much stacked
+                            # vx+turn disturbance for the pitch loop to damp. Cut further to 0.2*MAX_VX.
+
+=== CORRECTION_FRACTION ===
+# was 0.4, kept in sync w/ manual_control.py. A manual run fell during plain
+                           # continuous forward walking (turn=0 the whole time) - pitch oscillation grew
+                           # instead of decaying almost from the start, crossing the 25deg abort after
+                           # ~18s of walking. Same signature trot_demo.py had for its post-gait
+                           # oscillation, fixed there by cutting this same gain 0.4->0.25. Full run
+                           # details are in manual_control.py's comment.
+
+=== MAX_CORRECTION_RAD ===
+# reverted from 0.45, kept in sync w/ manual_control.py. See that file's
+                           # comment: a manual run showed 0.45's extra headroom let the correction loop
+                           # overshoot into real oscillation right at release (sign-flipping, pitch
+                           # growing while speed_xy climbed instead of decaying), instead of just giving
+                           # it more room to arrest a lean like intended.
+
+=== PITCH_RATE_DAMPING ===
+# reverted - see manual_control.py's comment on this constant (kept in sync).
+                           # Briefly doubled to 0.3 to fix an apparent underdamped oscillation, but 3
+                           # straight runs after that failed immediately in forward walk, one violently
+                           # (roll spiked to 10.6deg, avg_yaw_rate=45.7deg/s within under a second) - the
+                           # noisy, lightly-filtered pitch-rate derivative was probably getting amplified
+                           # into real torque kicks right at the crouch-to-gait transition, not adding
+                           # clean damping. Back to 0.15.
+
+=== ROLL_ABAD_FRACTION ===
+# kept in sync w/ manual_control.py - restored as the baseline for an A/B run
+                            # against the ROLL_ABAD_FRACTION=0.0 test. See manual_control.py's comment
+                            # above "abad = abad_geo + roll_term" for the narrowing-stance-width theory.
+
+=== SPEED_SETTLE_THRESHOLD ===
+# m/s - ported from trot_demo.py's post-gait-fall fix, kept in sync w/
+                                 # manual_control.py. Treat the body as "stopped enough" once real
+                                 # measured speed is at/below this, not just once the rate-limited
+                                 # target_vx/turn have decayed to ~0 or a fixed timer expires - see
+                                 # settle() and the shutdown sequence at the bottom of the main sequence.
+
+=== SCRIPTED PHASE RUNNER ===
+# scripted phase runner - the whole point of this file vs manual_control.py: no keyboard, just a
+# fixed sequence of (vx, turn) commands run automatically, so the turning behavior (and the
+# turn-then-fall issue) can be reproduced and measured the same way every time.
+
+=== PHASE_SETTLE ===
+# seconds of zero command between phases, so each phase starts
+                                    # from a clean planted stance with its own gait phase clock at
+                                    # t=0, and residual motion/lean from one phase can't bleed into
+                                    # the next.
+
+=== SETTLE EXTRA WAIT ===
+    # ported from trot_demo.py's post-gait-fall fix: PHASE_SETTLE above is a fixed duration, it
+    # doesn't check whether the body has actually stopped moving. A phase with more residual
+    # momentum (combined linear+angular especially) could still be sliding when the next phase
+    # starts, contaminating its start_xyz/start_yaw baseline. So give it a little extra,
+    # speed-gated time on top, capped so a phase that never settles can't hang the script.
+
+=== CONTROL THREAD SHUTDOWN ===
+# kept in sync w/ manual_control.py: keep the control thread alive - and with it the pitch/roll
+# correction and flat-stance holding - until real measured speed has actually settled, instead of
+# tearing it down right after the fixed-duration move above regardless of residual momentum.

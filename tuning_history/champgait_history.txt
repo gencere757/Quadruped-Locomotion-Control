@@ -1,0 +1,435 @@
+=== log_line() console-vs-file split (v6.7 fix) ===
+# v6.7 fix: print() (through the Tee above) goes to both console and run_log.txt. That's fine
+# for the handful of big phase markers (crouch, step sequence engaged, centering CoM before
+# lifting X, stepping X, safety abort, final summary), but diagnostic_line() was calling print()
+# too, on every tick - dozens of long telemetry lines per step, which is what was actually
+# flooding the console. log_line() only writes to the file, skipping the Tee'd stdout, so the
+# console stays down to just the step narration while run_log.txt still keeps all the detail.
+
+=== File header / rewrite rationale ===
+# v5 controller - a ground-up rewrite, based on how the CHAMP quadruped framework does it
+# (https://github.com/chvmp/champ, https://github.com/chvmp/libchamp).
+#
+# crawlgait.py (the previous controller) ran the gait as a sequential state machine: one leg at a
+# time went through shift -> lift -> swing -> place -> push, and while that leg moved, the other
+# three legs' foot targets were completely frozen except for a brief separate "shift" phase.
+# Reading CHAMP's actual leg_controller.h / trajectory_planner.h showed that's not how a real
+# continuous gait works: CHAMP runs one shared sawtooth phase clock every tick, drives all four legs
+# off it at once, and a leg in stance continuously sweeps its foot target backward in body frame the
+# whole time it's planted (x = (step_length/2)*(1-2*stance_phase), never frozen) - because a real
+# planted foot doesn't stay at a fixed body-frame offset while the body translates over it. That's
+# the gap this rewrite closes.
+#
+# This isn't a port of CHAMP's C++ - it keeps this project's own IK (leg_ik, 2-link planar solve,
+# L1=L2=0.2), IMU/ground-truth telemetry, and gz-transport13 plumbing, just restructured around
+# CHAMP's actual pattern:
+#   - one shared phase clock (leg_phase_fracs / current_swing_leg)
+#   - continuous, never-frozen stance sweep (foot_offset_for_leg, stance leg)
+#   - a smooth swing trajectory with zero endpoint velocity, using a smoothstep horizontal profile
+#     + sine vertical lift instead of CHAMP's 12-point Bezier (same idea - a continuous, jerk-reduced
+#     arc - just simpler since we don't need CHAMP's general swing-height/step-length
+#     reparameterization machinery for one fixed gait)
+#
+# Gait choice: this uses a creep gait (one leg swinging at a time, the other three always planted -
+# SWING_DUTY=0.25 divides the cycle evenly across 4 legs with no overlap), not CHAMP's default trot
+# (two diagonal legs swinging together). A trot only ever has a 2-point diagonal line of support and
+# needs active dynamic balance to not fall over between steps - and given this robot's whole
+# debugging history has been repeated tipping, starting from creep (full 3-foot support triangle at
+# all times, like the old gait) isolates "does the continuous-stance-sweep fix work at all" from
+# "can the control loop handle a trot's much smaller support margin." Trot can be a later step once
+# creep is proven stable.
+#
+# Known carry-over fix: the old D-term (pitch-rate damping) used the raw IMU angular_velocity.y
+# straight, unfiltered - run_log.txt showed it swinging by tens to hundreds of deg/s between
+# consecutive samples even while the body was nearly still. That noise was very likely why the last
+# crawlgait run failed in a new, more violent way (theta repeatedly saturating and flipping sign)
+# right after the D-term was added. This rewrite low-pass filters the rate signal (gyro, or
+# finite-difference if no gyro) before it reaches the correction term - see PITCH_RATE_LPF_ALPHA
+# below. Both the raw and filtered values are still logged every tick so this can be checked against
+# real data instead of just assumed.
+#
+# Everything not related to gait generation - the leg_ik/rotate math, the frame-correct world-space
+# foot tracking, the support-polygon/ZMP/capture-point stability checks, the safety-abort watchdog -
+# carries over unchanged from crawlgait.py. Those were validated separately (ZMP/CP both stayed
+# comfortably inside during the actual tipping failures, and the support-polygon math itself was
+# never in question) and aren't part of what broke.
+#
+# v6 update: explicit CoM-centered stepping, replacing the v5 continuous phase clock, per direct
+# request - after a leg lands, look at whichever leg lifts next, build the support polygon of the
+# other three, find its centroid, move the body's CoM there (measured, closed-loop, not a
+# fixed-time/fixed-magnitude guess like the old shift_bias), and only once it's actually aligned,
+# lift that next leg. Same idea crawlgait.py's old "shift" phase was reaching for, just done
+# properly: computed geometrically from real foot positions instead of a hand-picked SHIFT_MAG
+# constant, and gated on measured convergence instead of a fixed ramp time.
+#
+# Centering the CoM over a support triangle is a 2D problem (fore-aft AND left-right), but the leg
+# model up to now only had a real translation DOF in the fore-aft/vertical (fx, fz) plane - sideways
+# lean was only ever an approximate side-effect of the ABAD angle used for roll correction, never an
+# exact target. Genuine 2D centering needs a real third DOF in the IK, so leg_ik_3d() below extends
+# the leg model to its actual 3-joint kinematics (ABAD abduction + the existing HIP/KNEE 2-link,
+# matching model.sdf's actual joint axes - checked directly against the joint definitions, not
+# assumed): ABAD rotates about the body's fore-aft (X) axis, pivoting at each leg's ABAD mount point,
+# with a fixed 0.1m arm out to where the HIP pivot sits at zero abduction; HIP/KNEE then do the same
+# 2-link planar solve as before, just within whatever plane the abduction angle tilts them into.
+# Given a target (fx, fy, fz) relative to the ABAD pivot, the abad angle is solved in closed form
+# from the target's Y-Z projection (reach a circle of radius d, then solve the 2-link within that
+# tilted plane), and the existing, unchanged leg_ik() is reused as-is for HIP/KNEE once the plane is
+# known - so none of the already-tuned 2-link math changes, this just adds a new joint that picks
+# which tilted plane it operates in. The whole IK/FK derivation was checked numerically (random
+# targets through IK then back through forward kinematics, matched to machine precision) before
+# going into this file - that scratch verification isn't included here. What's NOT independently
+# verified is which physical rotation direction gz-sim treats as positive for the ABAD joint,
+# matched against this derivation's assumed convention - the old roll correction only ever sent the
+# same command to all four legs, so it never had to disambiguate a per-side mirroring the way this
+# lateral shift does. If the next run shows the body shifting the opposite lateral direction from
+# the target, that's a sign flip in leg_ik_3d, not evidence the geometric approach itself is wrong.
+#
+# v6.1 fix: the first v6 run tipped over (pitch -25.6 deg safety abort) before finishing even one
+# step. Root cause, from the log: centering the CoM over {FL,FR,BL} before lifting BR needed a real
+# ~0.084m lateral (Y) shift, but MAX_FY_SHIFT was a flat 0.03 - a number only ever checked against
+# one (fx, STANCE_FZ) point, never against what this algorithm actually needs. Since fy physically
+# couldn't reach the target, shift_com_to's combined-error check (err = hypot(ex,ey) < SHIFT_TOLERANCE)
+# could never pass, so the loop ran the full SHIFT_TIMEOUT every single step. Meanwhile its per-tick
+# accumulator (body_shift[0] += step_x, not "set toward target") kept adding to fx that whole time
+# even after fx had already converged on its own - eventually driving fx to FX_LIMIT, at which point
+# the combined (fx=0.09, fy=0.09-clamped) offset pushed the CoM outside the support triangle entirely.
+#
+# Two separate problems, two separate fixes:
+#   1. MAX_FY_SHIFT was never grounded in the leg's actual reach budget. Numerically: at the old
+#      STANCE_FZ=-0.384, vertical depth alone eats ~96% of the leg's 0.4m max extension, leaving as
+#      little as 0.0m of safe lateral margin near FX_LIMIT. A flat constant can't fix that - it
+#      depends on both fx and depth. Replaced with max_safe_fy()/clamp_fy() below: a closed-form
+#      (not searched) reach-aware bound derived straight from leg_ik_3d's geometry (see
+#      max_safe_fy's docstring), applied per-leg using that leg's actual fx that tick - so fy
+#      degrades gracefully leg by leg instead of ever asking for something physically unreachable.
+#   2. STANCE_FZ dropped from -0.384 to -0.34 (see its own comment below), purely to buy back enough
+#      reach budget for these shifts to actually be achievable, not just safely clamped-and-still-
+#      too-small.
+#   3. shift_com_to's accumulator now updates each axis independently (and only winds up on that
+#      axis), freezing an axis the moment its own error is within tolerance instead of letting a
+#      combined-error check stay open forever because the OTHER axis is stuck - so a converged axis
+#      can't get dragged along by one that hasn't converged. There's also a stall detector that cuts
+#      a step short if the error stops improving well before SHIFT_TIMEOUT, instead of always
+#      waiting out the full 3s on a step whose target isn't perfectly reachable.
+
+=== D_ABAD ===
+# 3-DOF leg IK: ABAD abduction + the existing HIP/KNEE 2-link
+# D_ABAD: fixed distance (in the leg's local Y at zero abduction) from the ABAD pivot to the HIP
+# pivot - read straight off model.sdf's link poses (FL_thigh y=0.213 minus FL_ABAD_L y=0.113 =
+# 0.1, same on all four legs). A real mechanical arm length, not something to tune.
+
+=== OY ===
+# OY: which direction (true body-frame Y) counts as "outward" for each leg at zero abduction,
+# left=+1/right=-1. Not the same as LEG_SIDE (that's front/back, for the 2-link plane) - it's
+# the same left/right split as LEG_LR further down (used for yaw correction), just describing
+# the same physical fact about the robot.
+
+=== latest_yaw variable comment ===
+latest_yaw = [0.0]   # added to tell "walking forward" apart from "turning in place" (pitch/roll
+                     # alone can't tell, just from body_xyz drift) - now also feeds the yaw-hold
+                     # correction further down
+
+=== pitch rate raw vs filtered (latest_pitch_rate_raw) ===
+# pitch rate: keep both the raw source (gyro if we have one, else finite-differenced pitch) and
+# a low-pass-filtered version. Only the filtered value (latest_pitch_rate) actually feeds the
+# D-term - crawlgait.py's last run showed the raw gyro swinging tens to hundreds of deg/s between
+# samples even when the body was nearly still, which fed a chaotic, sign-flipping correction.
+# latest_pitch_rate_raw is kept just so run_log.txt can show the filter is really smoothing
+# something, instead of assuming it works.
+
+=== YAW_RATE_LPF_ALPHA / yaw rate D-term (v6.6 fix) ===
+# v6.6 fix: yaw rate, same idea as pitch rate above (gyro if we have one, else finite-difference,
+# low-pass filtered). Needed because the last run's yaw wasn't drifting one way - it was
+# oscillating hard, +/-3 to 7 degrees between consecutive ~0.24s samples, growing and shrinking
+# at different points. A plain P-only correction can't damp that and can even fight it out of
+# phase. This gives the yaw-hold correction below a real D-term, same fix pitch already needed
+# (see PITCH_RATE_DAMPING's history above) for the same reason.
+
+=== frame note (Pose_V world vs body frame) ===
+# frame note: Pose_V gives the model's pose ("my_quadruped") relative to the world, but each
+# link's pose ("FR_shank" etc.) relative to the model (local/body frame) - so getting a foot's
+# world position means rotating its link offset into world frame first, then adding body_xyz.
+
+=== CMD_HIP_OFFSET / commanded-vs-actual foot tracking rationale ===
+# commanded-vs-actual foot tracking - added to figure out whether the "clawing"/high stance-foot
+# slip is real ground slip, or just the leg's joints failing to hold their commanded pose under
+# load (the joint compliance - p_gain=50/d_gain=2 - is fairly soft, and was tuned for the old
+# sequential gait, not this continuously-loaded one). CMD_HIP_OFFSET is each leg's nominal
+# hip-attachment offset from the body origin at ABAD=0 (from the SDF's thigh link poses - the
+# point leg_ik's (fx,fz) target is relative to). Rotating (x0+fx_c, y0, fz_c) into world the same
+# way _update_foot_world_positions() rotates the real link offsets gives a commanded foot world
+# position to diff against the real one. This ignores ABAD's own small tilt of the leg plane
+# (roll correction stays under ~8.6 degrees) - not exact forward kinematics, but plenty to see
+# whether actual tracks commanded at all.
+
+=== STANCE_FZ ===
+# STANCE_FZ: was -0.384 (the proven settled-crouch depth from crawlgait.py) through v6.
+# Raised (shallower) to -0.34 for the v6.1 fix: -0.384 alone ate ~96% of the leg's 0.4m max
+# extension just going down, leaving almost no safe lateral (fy) margin at the fx values a real
+# step uses - which is exactly what let the CoM-centering shift's ~0.084m lateral need collide
+# with the reach limit and trigger a safety abort. -0.34 frees up ~0.10-0.12m of lateral margin
+# (see max_safe_fy below) even with fx near its limit - plenty for dropping one corner leg from
+# the stance rectangle. Trade-off: less of the old crouch depth's stability margin, not yet
+# verified on a real run - if the robot looks less planted/wobblier at rest than before, this is
+# the first thing to check.
+
+=== STEP_LENGTH_FRONT / STEP_LENGTH_BACK ===
+# front legs get a shorter step and lower swing lift than back legs - carried over from
+# crawlgait.py's tuning, which found front-leg loading (place->push) was the specific moment
+# pitch ran away, so smaller front-leg moves give that moment less leverage.
+#
+# STEP_LENGTH_BACK cut from 0.10 to 0.08: the first full run that didn't fall still showed the
+# tilt correction swinging ~13 degrees and flipping sign within half a second on almost every
+# step, worst during the back legs (BR pitch dipping -6 to -10 deg) - a real disturbance being
+# fought hard, not just a jerky controller. STEP_LENGTH_BACK was the biggest single number in
+# this design and the one most often implicated, so cutting it directly reduces the disturbance
+# per step, instead of touching the correction gains that are load-bearing for not falling over.
+
+=== SWING_HEIGHT_FRONT ===
+# SWING_HEIGHT_FRONT history: started at 0.044 - front legs dragged, never cleared the ground
+# (watched it happen directly). Raised to 0.08 to fully match the back legs as the first fix,
+# but that run failed much worse than before: not a tip-over this time but a growing pitch
+# oscillation (+/-2 deg building to +/-25 deg over ~2s, safety abort), starting right after FL's
+# swing and building through the next leg gap and FR's swing. The only thing changed from the
+# last stable run was this constant, so the extra front swing height is the prime suspect - a
+# taller front-foot arc is a bigger disturbance at liftoff/landing. Split the difference at 0.06
+# instead of matching the back legs, so the next run can tell apart "does the foot clear the
+# ground" (check foot_z directly) from "is the disturbance still too big." Though the v6
+# CoM-centering rewrite below (explicit shift-before-lift, closed-loop) tackles this same
+# liftoff-disturbance problem much more directly than the old fixed bias ever did.
+
+=== GAIT_ORDER (creep order note) ===
+# creep order: one leg lifts at a time in this fixed sequence, repeated N_CYCLES times.
+# No shared phase clock or fixed period anymore (see the v6 note above) - each step just takes
+# as long as it takes: a variable-length CoM-centering shift, then a fixed-length swing.
+
+=== body_shift (CoM-centering shift) ===
+# CoM-centering shift - replaces the old fixed-magnitude/fixed-time shift_bias
+# body_shift is one shared (fx, fy) offset applied to all four legs' targets every tick (in
+# control_loop below). Since a planted foot is fixed to the ground, adding the same offset to
+# every leg's target is what actually makes the body translate under them - same trick the old
+# continuous stance-sweep used for fx alone; fy is new here, made possible by leg_ik_3d.
+# shift_com_to() closes the loop on this: nudges body_shift a bit every tick and checks the real
+# measured body_xyz, instead of just assuming a fixed magnitude and ramp time will get there
+# (that was the old shift_bias's repeated failure mode - see the SHIFT_MAG history that used to
+# live here).
+
+=== REACH_BUDGET ===
+# REACH_BUDGET: the leg's real max 2-link extension is L1+L2=0.4m exactly (a hard physical
+# limit, not a soft one). Staying 0.01m under it means leg_ik/leg_ik_3d's own last-resort
+# clamps (max(r, D_ABAD+eps), etc.) never actually have to kick in during normal operation.
+
+=== SHIFT_KP ===
+SHIFT_KP = 0.125      # proportional gain - body_shift moves toward closing the error each tick.
+                      # Halved (was 0.5) in v6.3, halved again in v6.8, same reason both times:
+                      # the sign-corrected first run converged in position nicely (err 0.12 ->
+                      # 0.024) but built real momentum doing it - speed_xy peaked at 0.337 m/s,
+                      # more than double what the old SHIFT_STEP_MAX ramp rate should have
+                      # produced on its own, meaning the response was underdamped/overshooting,
+                      # not just following the setpoint - and that momentum carried it straight
+                      # through the support triangle edge and tipped the robot. Halving it (v6.3)
+                      # fixed that run, but a later run (cycle 2's first re-centering, a bigger
+                      # combined fx+fy move that drove fx into FX_LIMIT while fy swept a wide
+                      # range) hit the same signature again: position converging fine while the
+                      # gyro's raw pitch rate flipped from -104deg/s to +110deg/s in one ~0.24s
+                      # sample - a real physical event (probably a stance foot's grip briefly
+                      # breaking under load), not a smooth control response. Same fix again: less
+                      # peak acceleration means less chance of blowing past a stance foot's
+                      # friction limit, this time for the bigger combined moves v6.3's pace still
+                      # wasn't gentle enough for.
+
+=== SHIFT_VEL_TOLERANCE ===
+SHIFT_VEL_TOLERANCE = 0.02   # m/s - v6.3 fix: reaching the target position isn't enough to call
+                             # a shift done, the body has to have actually stopped moving too.
+                             # Before, shift_com_to only checked position error, so it happily
+                             # called victory while the body still had real momentum - which is
+                             # exactly what carried it past the support edge last run. Combined
+                             # with the position tolerance, the loop now actually waits for the
+                             # body to settle first.
+
+=== SHIFT_TIMEOUT ===
+SHIFT_TIMEOUT = 6.0      # seconds - doubled in v6.8: since SHIFT_KP/SHIFT_STEP_MAX just got
+                         # halved again, the body now closes any given error at roughly half the
+                         # old rate. At the old 3.0s bound, a typical 0.09-0.15m shift would
+                         # routinely hit the timeout before converging - i.e. the safety bound
+                         # would become the normal way out instead of a rare fallback, quietly
+                         # undoing the point of slowing down. Doubling it keeps a real bound
+                         # while giving the gentler pace room to work.
+
+=== SHIFT_STALL_TICKS ===
+SHIFT_STALL_TICKS = 80   # ~1.6s at CONTROL_DT=0.02 - also doubled in v6.8, same reason as
+                         # SHIFT_TIMEOUT: with half the step size, the settle metric improves
+                         # about half as much per tick, so the old 40-tick (~0.8s) window would
+                         # start flagging normal, slower-but-real progress as a stall. If the
+                         # metric (position error and velocity, see SHIFT_VEL_WEIGHT) hasn't
+                         # meaningfully improved in this many ticks, more waiting won't help -
+                         # stop burning the rest of SHIFT_TIMEOUT
+
+=== SHIFT_VEL_WEIGHT ===
+SHIFT_VEL_WEIGHT = 0.1   # v6.3 fix: folds speed_xy into the same settle metric the stall
+                         # detector watches (metric = pos_err + SHIFT_VEL_WEIGHT*speed_xy) - so
+                         # decaying momentum after position has already converged still counts
+                         # as improving, instead of getting mistaken for a stall and cut short
+                         # before the body actually stops
+
+=== v6.11 fy-rate throttle rationale ===
+# v6.11: a targeted fy-rate throttle, not another blanket gain cut. The cycle-2 fall (about to
+# lift FR) showed FL slipping hard - world-frame foot velocity spiking to -0.37 m/s, 3-10x the
+# usual background level - right while body_shift[1] (fy) was sweeping a wide range. What's
+# structurally different about cycle 2+ vs cycle 1: every leg already carries its post-swing fx
+# offset (+step/2, permanent until that leg's next swing), instead of cycle 1's mix where some
+# legs are still at fx=0.
+#
+# First attempt at this throttle keyed off reach headroom (max_safe_fy minus |fy|), on the
+# reasoning that a pre-loaded fx eats into the reach budget. Checked that against the actual
+# failing run's numbers before shipping it: at every point in that shift, every leg still had
+# 3-4cm of reach headroom to spare (fy never passed ~0.07, and max_safe_fy at those fx values
+# was ~0.10-0.11) - nowhere near REACH_BUDGET's limit. So reach wasn't what ran out, and that
+# version wouldn't have actually triggered for the incident it was meant to catch. Rebuilt on
+# what there IS direct evidence for: it's the pre-loaded fx state itself (cycle 2+ only) that's
+# the real difference, not how much reach headroom happens to be left at a given fy - so the
+# throttle now keys directly on that instead of a reach proxy.
+
+=== FY_LOADED_FX_THRESHOLD ===
+FY_LOADED_FX_THRESHOLD = 0.015   # meters - any leg with foot_target fx at or above this has
+                                  # already had its first swing and is permanently carrying
+                                  # +step/2 (0.03 front / 0.04 back) instead of cycle 1's
+                                  # neutral 0 - the one confirmed structural difference between
+                                  # cycle 1's shifts (survived) and the cycle 2 shift that didn't.
+
+=== v6.5 fix, reverted (FORWARD_BIAS) ===
+# v6.5 fix, reverted: briefly added an artificial FORWARD_BIAS here (nudging every shift's
+# target forward past the pure centroid), on the idea that the CoM-centering rule as written has
+# no notion of "forward." That was wrong, worth recording why. When a leg swings, its new foot
+# position is wherever the body was at that moment, plus hip_offset, plus step/2 (the swing's
+# forward endpoint) - that's a permanent gain, the foot stays planted there until that leg's
+# next turn, not a reset. Simulating the exact rule (idealized: perfect convergence, no falling,
+# same GAIT_ORDER) over many cycles shows a real, consistent net-forward drift with no bias
+# needed at all - and checked against the real log, that idealized model reproduces the same
+# early-cycle pattern the real run showed (forward on dropping a back leg, a dip on dropping a
+# front leg, summing to slightly negative after 3 of 4 steps), before the 4th step in a cycle
+# (dropping the last back leg) gives the single biggest forward gain of the whole cycle. The
+# real robot has never survived to that 4th step - it always fell partway through the first
+# cycle - so "no net progress in a partial cycle" got mistaken for "no forward drive in the
+# design," which the math says isn't true. The real problem is surviving a full cycle, not a
+# missing forward signal - so this bias is removed instead of tuned.
+
+=== shift_com_to v6.3 fix note (position+velocity check) ===
+        # v6.3 fix: converged position alone isn't enough anymore - the body also has to have
+        # actually stopped (speed_xy below SHIFT_VEL_TOLERANCE). See SHIFT_VEL_TOLERANCE's
+        # comment: the previous run called victory on position alone while still carrying
+        # 0.337 m/s, and that momentum is what carried it through the support edge a moment later.
+
+=== shift_com_to v6.1 fix note (stall detection) ===
+        # v6.1 fix (now using the combined position+velocity metric from v6.3): stall detection
+        # - if a target axis is clamped/unreachable, or the body just won't settle, the metric
+        # stops improving long before SHIFT_TIMEOUT. No point burning the rest of the timeout
+        # waiting on something that isn't getting closer. Using `metric` here instead of just
+        # `err` means decaying velocity after position has converged still counts as progress,
+        # so this can't cut the settle wait short just because position stopped changing.
+
+=== shift_com_to v6.1 fix note (per-axis freeze) ===
+        # v6.1 fix: only update (and accumulate on) an axis that hasn't converged yet. Before,
+        # both axes updated every tick off the combined error, so a permanently-stuck ey
+        # (unreachable fy target) kept the loop alive long enough for ex's own accumulator to
+        # wind fx all the way to its limit even after ex had already converged. This freezes a
+        # converged axis instead of letting the other one drag it along.
+
+=== capture_point_status usage rationale (v6.3 fix) ===
+# v6.3 fix: capture_point_status was being computed and logged the whole time but never
+# actually used by anything - the only thing standing between "safe to lift" and the previous
+# run's tip-over was a plain position-error check. The capture point already bakes in body
+# velocity (x_cp = x_com + vx*sqrt(z0/g)), so it's exactly the "does this leg still have real
+# margin, momentum included" signal that shift_com_to's position-only check was missing. Making
+# it an actual gate here (rather than folding it into shift_com_to) keeps shift_com_to scoped
+# to just "get body_shift to converge," and puts "is it actually safe to lift" in its own clear step.
+
+=== wait_for_settle rationale (v6.4 fix) ===
+# v6.4 fix: a swing is a real physical disturbance, not a clean instant leg-lift. The latest
+# run's log shows BR's swing alone (do_swing, ~0.9s) driving yaw from -0.9deg to +11.0deg and
+# briefly pushing ZMP outside the support triangle 93% through the arc (matches the oldest log
+# analysis in this file's history, which already flagged BR's swing as the biggest per-cycle
+# yaw contributor - it just wasn't fatal back when the gait was one continuous phase clock
+# instead of a hard step boundary). The step sequence used to launch the next shift_com_to (a
+# bigger move this time, toward a different 3-leg polygon) right after landing, while that
+# disturbance was still decaying (yaw was still +6-7deg and the body still moving when the next
+# shift's log started) - stacking a fresh, big CoM move on an unresolved one instead of letting
+# the robot actually recover between steps. wait_for_settle() below is the landing-side mirror
+# of wait_for_safe_lift() (which already gates the lift side the same way): hold position, wait
+# (bounded) for the body to actually stop moving, before letting the next shift start.
+
+=== foot_target semantics ===
+# foot_target[leg] = (fx, fz) in the leg's own nominal (untilted) body frame - drives HIP/KNEE
+# through leg_ik_3d (fy comes separately, from the shared body_shift, not per leg). It's always
+# set directly by whichever main-thread function is currently running - move_feet_manual
+# (crouch/settle) or do_swing (one leg's step) - control_loop only ever reads it, never computes it.
+
+=== PITCH_RATE_DAMPING (v6.9 reverted in v6.10) ===
+# v6.9 reverted in v6.10: the 0.15->0.05 cut above was only ever compensating for model.sdf's
+# joint gains being raised to p_gain=300/d_gain=6 to fight stance-foot slip. That gain jump is
+# itself reverted now (back to the original p_gain=50/d_gain=2) - it was unrealistic (real
+# quadruped joint position gains are usually ~20-50 N*m/rad, so 300 was a 6x overshoot), and
+# given how light these leg links are, it pushed each joint's natural frequency past what a 1ms
+# physics step can resolve cleanly - which is what caused the "instant snap"/vibration and the
+# crouch-phase fall this constant was cut for in the first place. Now that the joints are back
+# to their original stiffness, this constant goes back to its original value too - no reason to
+# keep compensating for a change that doesn't exist anymore.
+
+=== yaw-hold correction rationale / YAW_FX_GAIN ===
+# yaw-hold correction - new, untested
+# now that yaw is actually tracked, the last run's log showed a real, one-directional yaw drift
+# that neither pitch nor roll correction touches at all - +37 deg of accumulated turn over 18s,
+# growing almost every cycle instead of randomly wandering. That's what made walking forward
+# look like turning/shuffling in place: each step's forward push landed in a slightly different
+# world direction than the last, so net straight-line displacement stayed tiny even though the
+# robot was clearly moving. Per-swing breakdown pointed at BR's swing as the single biggest
+# contributor each cycle (the other three swings partly, not fully, cancel it out).
+# Fix modeled on the existing pitch/roll corrections: hold heading at whatever yaw the gait
+# started at, by pushing left-side and right-side legs' fore-aft target in opposite directions,
+# proportional to the accumulated yaw error - the skid-steer equivalent of the pitch theta
+# correction. LEG_LR is a genuine left(+1)/right(-1) map - not the same as LEG_SIDE above, which
+# is a front/back split for the IK's geometry, unrelated to which side a leg is on.
+# YAW_FX_GAIN's sign below is a first guess (positive yaw error -> pull left legs back / push
+# right legs forward, i.e. steer right to counter a leftward drift) and hasn't been validated -
+# if the next run's yaw drift gets worse or flips unstably, that's the signal to flip this sign
+# rather than tune its size. Kept deliberately small (comparable to the shift_bias magnitudes)
+# since this is a new, unproven correction on top of an already carefully-tuned pitch/roll
+# system.
+
+=== YAW_RATE_DAMPING (v6.6 fix) ===
+# v6.6 fix: the last run showed yaw wasn't drifting steadily, it was oscillating - +/-3 to 7
+# degrees between consecutive ~0.24s samples, growing and shrinking at different points, never
+# settling. YAW_FX_GAIN alone (checked: never got anywhere near MAX_YAW_FX while yaw swung
+# across a 20+ degree range) was acting as a pure P-term with no damping - the same failure mode
+# pitch already went through (see PITCH_RATE_DAMPING's history) - so yaw gets the same fix: a
+# rate (D-term) contribution from latest_yaw_rate, instead of just a bigger P-gain (cranking P
+# on an oscillating, underdamped system risks making it worse, not calmer).
+
+=== swinging_now rationale (v6.7 fix) ===
+# v6.7 fix: the last run fell during a swing (BL's), not during a shift - body_shift itself was
+# confirmed frozen the whole time (fx/fy unchanged in the log), but body_xyz still moved ~0.10m
+# at a sustained 0.15-0.24 m/s over that single 0.9s swing. The leak: the yaw-hold correction
+# gets recomputed and applied to every leg's fx (including the three planted ones) every tick,
+# with no notion of "we already shifted, now just hold still while one leg swings" - it kept
+# actively changing through the swing, and since it's a differential (left legs +, right legs -),
+# that's the exact same "offset a planted foot's target -> move the body" trick body_shift itself
+# relies on, just running uncontrolled during the one phase where the stance legs shouldn't be
+# moving at all. swinging_now gates it off entirely during do_swing - live during the deliberate
+# shift (where steering matters), zero during the swing (the whole point being that a leg
+# already centered over 3 planted feet can swing without the body needing to keep moving
+# underneath it).
+
+=== control_loop fy clamp comment (v6.1 fix) ===
+            # v6.1 fix: clamp fy against this leg's actual post-rotation (fx_c, fz_c), not a
+            # flat constant - see max_safe_fy's docstring. A leg with less reach margin left
+            # this tick gets less lateral shift than the others, instead of all four being held
+            # to the worst-case leg's number (or, like before, to a number never checked against
+            # the real operating point at all).
+
+=== step sequence rationale ===
+# the step sequence itself - exactly what was asked for: for each leg in turn, look at the
+# other three (the ones that'll carry all the weight once this leg lifts), find their support
+# polygon's centroid, move the body there (closed-loop, checked against real body_xyz, not
+# assumed), and only once it's actually aligned, lift and swing this leg. No fixed period, no
+# phase clock - each step just takes as long as its shift actually takes, plus the fixed
+# SWING_DURATION for the lift.

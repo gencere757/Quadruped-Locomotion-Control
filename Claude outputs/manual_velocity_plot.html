@@ -1,0 +1,247 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Manual run velocity</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --axis:           #c3c2b7;
+    --series-1:       #2a78d6;
+    --critical:       #d03b3b;
+    --critical-wash:  rgba(208,59,59,0.08);
+    --border:         rgba(11,11,11,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --axis:           #383835;
+      --series-1:       #3987e5;
+      --critical:       #e66767;
+      --critical-wash:  rgba(230,103,103,0.12);
+      --border:         rgba(255,255,255,0.10);
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --axis:           #383835;
+    --series-1:       #3987e5;
+    --critical:       #e66767;
+    --critical-wash:  rgba(230,103,103,0.12);
+    --border:         rgba(255,255,255,0.10);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .viz-root { background: var(--page); padding: 24px; min-height: 100vh; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 24px 16px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 2px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 18px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis-label { fill: var(--text-muted); font-size: 11px; }
+  .axis-line { stroke: var(--axis); stroke-width: 1; }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .zero-line { stroke: var(--axis); stroke-width: 1.5; }
+  .target-line { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .neg-band { fill: var(--critical-wash); }
+  .series-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+  .dot-neg { fill: var(--critical); }
+  .ref-label { fill: var(--text-muted); font-size: 11px; }
+  .legend-row { display: flex; align-items: center; gap: 16px; margin: 4px 0 14px; font-size: 12px; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 2px; border-radius: 1px; }
+  .swatch.target { background: var(--text-muted); }
+  .swatch.zero { background: var(--axis); }
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--text-primary); color: var(--surface-1);
+    font-size: 11px; padding: 5px 8px; border-radius: 6px; transform: translate(-50%, -115%);
+    white-space: nowrap; opacity: 0; transition: opacity 0.08s;
+  }
+  .crosshair { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 2 2; opacity: 0; }
+  .chart-wrap { position: relative; }
+  .toggle-btn {
+    font-size: 11px; color: var(--text-secondary); background: transparent; border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 9px; cursor: pointer; font-family: inherit;
+  }
+  .toggle-btn:hover { background: var(--critical-wash); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+  th, td { text-align: right; padding: 4px 8px; font-variant-numeric: tabular-nums; color: var(--text-secondary); border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; color: var(--text-primary); }
+  th { color: var(--text-muted); font-weight: 500; }
+  td.neg { color: var(--critical); font-weight: 600; }
+  .foot { font-size: 11px; color: var(--text-muted); margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <div class="card">
+    <h1>Forward velocity during manual run</h1>
+    <p class="subtitle">Signed forward speed (vx) over ~78s of manual driving (W/S/A/D) &middot; target &plusmn;0.150 m/s &middot; NO abort, NO saturation - longest clean run since the pitch_rate filter fix</p>
+    <div class="legend-row">
+      <div class="legend-item"><span class="swatch" style="background:var(--series-1)"></span>vx (forward velocity)</div>
+      <div class="legend-item"><span class="swatch target"></span>target vx_target (varies)</div>
+      <div class="legend-item"><span class="swatch zero"></span>zero</div>
+      <div style="flex:1"></div>
+      <button class="toggle-btn" id="toggleTable">Show table</button>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" viewBox="0 0 700 320" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <table id="dataTable" style="display:none"></table>
+    <p class="foot">Velocity computed from consecutive body-position samples (~0.3s apart). Small mid-walk dips during forward driving (up to -0.06 m/s) are present but did not destabilize the robot - no abort, no theta saturation across the whole run, vs. falls within 15-20s before the pitch_rate filter fix (PITCH_RATE_LPF_ALPHA 0.2-&gt;0.10).</p>
+  </div>
+</div>
+<script>
+const data = [{"t": 0.3, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 0.6, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 0.9, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 1.2, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 1.5, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 1.8, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 2.1, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 2.4, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 2.7, "vx": 0.0, "vx_target": 0.0, "speed_xy_reported": 0.0}, {"t": 3.0, "vx": 0.0, "vx_target": 0.004, "speed_xy_reported": 0.0}, {"t": 3.3, "vx": 0.0068, "vx_target": 0.067, "speed_xy_reported": 0.053}, {"t": 3.6, "vx": 0.082, "vx_target": 0.129, "speed_xy_reported": 0.109}, {"t": 3.9, "vx": 0.0493, "vx_target": 0.15, "speed_xy_reported": 0.116}, {"t": 4.2, "vx": 0.1431, "vx_target": 0.15, "speed_xy_reported": 0.08}, {"t": 4.5, "vx": 0.1137, "vx_target": 0.15, "speed_xy_reported": 0.211}, {"t": 4.8, "vx": 0.1081, "vx_target": 0.15, "speed_xy_reported": 0.095}, {"t": 5.1, "vx": 0.117, "vx_target": 0.15, "speed_xy_reported": 0.087}, {"t": 5.4, "vx": 0.0453, "vx_target": 0.15, "speed_xy_reported": 0.066}, {"t": 5.7, "vx": 0.0977, "vx_target": 0.15, "speed_xy_reported": 0.048}, {"t": 6.0, "vx": 0.0503, "vx_target": 0.15, "speed_xy_reported": 0.114}, {"t": 6.3, "vx": -0.0162, "vx_target": 0.15, "speed_xy_reported": 0.064}, {"t": 6.6, "vx": -0.0469, "vx_target": 0.15, "speed_xy_reported": 0.077}, {"t": 6.9, "vx": 0.0779, "vx_target": 0.15, "speed_xy_reported": 0.117}, {"t": 7.2, "vx": 0.1346, "vx_target": 0.15, "speed_xy_reported": 0.078}, {"t": 7.5, "vx": 0.1141, "vx_target": 0.15, "speed_xy_reported": 0.174}, {"t": 7.8, "vx": 0.0574, "vx_target": 0.15, "speed_xy_reported": 0.052}, {"t": 8.1, "vx": 0.0907, "vx_target": 0.15, "speed_xy_reported": 0.051}, {"t": 8.4, "vx": 0.0499, "vx_target": 0.15, "speed_xy_reported": 0.129}, {"t": 8.7, "vx": 0.0345, "vx_target": 0.15, "speed_xy_reported": 0.05}, {"t": 9.0, "vx": -0.0224, "vx_target": 0.15, "speed_xy_reported": 0.039}, {"t": 9.3, "vx": 0.0256, "vx_target": 0.15, "speed_xy_reported": 0.034}, {"t": 9.6, "vx": 0.1059, "vx_target": 0.15, "speed_xy_reported": 0.061}, {"t": 9.9, "vx": 0.0743, "vx_target": 0.15, "speed_xy_reported": 0.142}, {"t": 10.2, "vx": 0.1006, "vx_target": 0.15, "speed_xy_reported": 0.087}, {"t": 10.5, "vx": 0.1205, "vx_target": 0.15, "speed_xy_reported": 0.085}, {"t": 10.8, "vx": 0.0498, "vx_target": 0.15, "speed_xy_reported": 0.092}, {"t": 11.1, "vx": 0.14, "vx_target": 0.15, "speed_xy_reported": 0.074}, {"t": 11.4, "vx": 0.0947, "vx_target": 0.15, "speed_xy_reported": 0.198}, {"t": 11.7, "vx": 0.1333, "vx_target": 0.15, "speed_xy_reported": 0.125}, {"t": 12.0, "vx": 0.1267, "vx_target": 0.15, "speed_xy_reported": 0.051}, {"t": 12.3, "vx": 0.0052, "vx_target": 0.15, "speed_xy_reported": 0.087}, {"t": 12.6, "vx": 0.0599, "vx_target": 0.15, "speed_xy_reported": 0.036}, {"t": 12.9, "vx": 0.0467, "vx_target": 0.15, "speed_xy_reported": 0.141}, {"t": 13.2, "vx": 0.0025, "vx_target": 0.15, "speed_xy_reported": 0.099}, {"t": 13.5, "vx": -0.0182, "vx_target": 0.15, "speed_xy_reported": 0.146}, {"t": 13.8, "vx": 0.0299, "vx_target": 0.15, "speed_xy_reported": 0.066}, {"t": 14.1, "vx": 0.0306, "vx_target": 0.15, "speed_xy_reported": 0.022}, {"t": 14.4, "vx": 0.0237, "vx_target": 0.15, "speed_xy_reported": 0.138}, {"t": 14.7, "vx": 0.0336, "vx_target": 0.15, "speed_xy_reported": 0.069}, {"t": 15.0, "vx": 0.0158, "vx_target": 0.15, "speed_xy_reported": 0.046}, {"t": 15.3, "vx": -0.0312, "vx_target": 0.15, "speed_xy_reported": 0.086}, {"t": 15.6, "vx": 0.0558, "vx_target": 0.15, "speed_xy_reported": 0.086}, {"t": 15.9, "vx": 0.114, "vx_target": 0.15, "speed_xy_reported": 0.071}, {"t": 16.2, "vx": 0.0367, "vx_target": 0.15, "speed_xy_reported": 0.056}, {"t": 16.5, "vx": 0.103, "vx_target": 0.15, "speed_xy_reported": 0.072}, {"t": 16.8, "vx": 0.1011, "vx_target": 0.15, "speed_xy_reported": 0.196}, {"t": 17.1, "vx": 0.0656, "vx_target": 0.15, "speed_xy_reported": 0.018}, {"t": 17.4, "vx": 0.0538, "vx_target": 0.15, "speed_xy_reported": 0.099}, {"t": 17.7, "vx": 0.0113, "vx_target": 0.15, "speed_xy_reported": 0.061}, {"t": 18.0, "vx": -0.0129, "vx_target": 0.15, "speed_xy_reported": 0.052}, {"t": 18.3, "vx": -0.0582, "vx_target": 0.15, "speed_xy_reported": 0.053}, {"t": 18.6, "vx": 0.0466, "vx_target": 0.15, "speed_xy_reported": 0.088}, {"t": 18.9, "vx": 0.1044, "vx_target": 0.15, "speed_xy_reported": 0.019}, {"t": 19.2, "vx": -0.0094, "vx_target": 0.15, "speed_xy_reported": 0.093}, {"t": 19.5, "vx": -0.0247, "vx_target": 0.15, "speed_xy_reported": 0.049}, {"t": 19.8, "vx": -0.0083, "vx_target": 0.15, "speed_xy_reported": 0.043}, {"t": 20.1, "vx": 0.0633, "vx_target": 0.15, "speed_xy_reported": 0.045}, {"t": 20.4, "vx": 0.1189, "vx_target": 0.15, "speed_xy_reported": 0.11}, {"t": 20.7, "vx": 0.0629, "vx_target": 0.15, "speed_xy_reported": 0.099}, {"t": 21.0, "vx": 0.0462, "vx_target": 0.15, "speed_xy_reported": 0.035}, {"t": 21.3, "vx": 0.0422, "vx_target": 0.15, "speed_xy_reported": 0.096}, {"t": 21.6, "vx": -0.0027, "vx_target": 0.15, "speed_xy_reported": 0.083}, {"t": 21.9, "vx": -0.0322, "vx_target": 0.15, "speed_xy_reported": 0.045}, {"t": 22.2, "vx": -0.0279, "vx_target": 0.15, "speed_xy_reported": 0.041}, {"t": 22.5, "vx": -0.0083, "vx_target": 0.15, "speed_xy_reported": 0.059}, {"t": 22.8, "vx": -0.0098, "vx_target": 0.15, "speed_xy_reported": 0.076}, {"t": 23.1, "vx": 0.0497, "vx_target": 0.15, "speed_xy_reported": 0.071}, {"t": 23.4, "vx": 0.0945, "vx_target": 0.15, "speed_xy_reported": 0.07}, {"t": 23.7, "vx": 0.0364, "vx_target": 0.15, "speed_xy_reported": 0.108}, {"t": 24.0, "vx": 0.0758, "vx_target": 0.15, "speed_xy_reported": 0.065}, {"t": 24.3, "vx": 0.1024, "vx_target": 0.15, "speed_xy_reported": 0.112}, {"t": 24.6, "vx": 0.0633, "vx_target": 0.15, "speed_xy_reported": 0.111}, {"t": 24.9, "vx": 0.0901, "vx_target": 0.15, "speed_xy_reported": 0.023}, {"t": 25.2, "vx": 0.0457, "vx_target": 0.15, "speed_xy_reported": 0.097}, {"t": 25.5, "vx": -0.0125, "vx_target": 0.15, "speed_xy_reported": 0.036}, {"t": 25.8, "vx": 0.0091, "vx_target": 0.15, "speed_xy_reported": 0.076}, {"t": 26.1, "vx": -0.0491, "vx_target": 0.15, "speed_xy_reported": 0.052}, {"t": 26.4, "vx": 0.0493, "vx_target": 0.15, "speed_xy_reported": 0.061}, {"t": 26.7, "vx": 0.0646, "vx_target": 0.15, "speed_xy_reported": 0.143}, {"t": 27.0, "vx": 0.0265, "vx_target": 0.15, "speed_xy_reported": 0.047}, {"t": 27.3, "vx": 0.0166, "vx_target": 0.15, "speed_xy_reported": 0.062}, {"t": 27.6, "vx": -0.0176, "vx_target": 0.15, "speed_xy_reported": 0.055}, {"t": 27.9, "vx": 0.0116, "vx_target": 0.15, "speed_xy_reported": 0.019}, {"t": 28.2, "vx": 0.0176, "vx_target": 0.15, "speed_xy_reported": 0.112}, {"t": 28.5, "vx": 0.0056, "vx_target": 0.15, "speed_xy_reported": 0.1}, {"t": 28.8, "vx": -0.0218, "vx_target": 0.15, "speed_xy_reported": 0.022}, {"t": 29.1, "vx": 0.0663, "vx_target": 0.15, "speed_xy_reported": 0.158}, {"t": 29.4, "vx": 0.0827, "vx_target": 0.15, "speed_xy_reported": 0.072}, {"t": 29.7, "vx": 0.1425, "vx_target": 0.15, "speed_xy_reported": 0.107}, {"t": 30.0, "vx": 0.0994, "vx_target": 0.15, "speed_xy_reported": 0.168}, {"t": 30.3, "vx": 0.12, "vx_target": 0.15, "speed_xy_reported": 0.039}, {"t": 30.6, "vx": 0.0863, "vx_target": 0.15, "speed_xy_reported": 0.172}, {"t": 30.9, "vx": 0.0754, "vx_target": 0.15, "speed_xy_reported": 0.074}, {"t": 31.2, "vx": 0.1506, "vx_target": 0.15, "speed_xy_reported": 0.136}, {"t": 31.5, "vx": 0.097, "vx_target": 0.15, "speed_xy_reported": 0.158}, {"t": 31.8, "vx": 0.0884, "vx_target": 0.15, "speed_xy_reported": 0.085}, {"t": 32.1, "vx": 0.095, "vx_target": 0.15, "speed_xy_reported": 0.183}, {"t": 32.4, "vx": 0.0613, "vx_target": 0.15, "speed_xy_reported": 0.07}, {"t": 32.7, "vx": 0.1258, "vx_target": 0.15, "speed_xy_reported": 0.103}, {"t": 33.0, "vx": 0.094, "vx_target": 0.15, "speed_xy_reported": 0.144}, {"t": 33.3, "vx": 0.1273, "vx_target": 0.15, "speed_xy_reported": 0.037}, {"t": 33.6, "vx": 0.1159, "vx_target": 0.15, "speed_xy_reported": 0.175}, {"t": 33.9, "vx": 0.0912, "vx_target": 0.15, "speed_xy_reported": 0.101}, {"t": 34.2, "vx": 0.0851, "vx_target": 0.15, "speed_xy_reported": 0.065}, {"t": 34.5, "vx": 0.0055, "vx_target": 0.15, "speed_xy_reported": 0.025}, {"t": 34.8, "vx": -0.0062, "vx_target": 0.15, "speed_xy_reported": 0.056}, {"t": 35.1, "vx": 0.0203, "vx_target": 0.15, "speed_xy_reported": 0.075}, {"t": 35.4, "vx": 0.006, "vx_target": 0.15, "speed_xy_reported": 0.052}, {"t": 35.7, "vx": 0.0614, "vx_target": 0.15, "speed_xy_reported": 0.031}, {"t": 36.0, "vx": 0.0125, "vx_target": 0.15, "speed_xy_reported": 0.11}, {"t": 36.3, "vx": 0.0015, "vx_target": 0.113, "speed_xy_reported": 0.031}, {"t": 36.6, "vx": 0.0044, "vx_target": 0.05, "speed_xy_reported": 0.006}, {"t": 36.9, "vx": 0.0467, "vx_target": -0.008, "speed_xy_reported": 0.164}, {"t": 37.2, "vx": 0.0581, "vx_target": -0.07, "speed_xy_reported": 0.123}, {"t": 37.5, "vx": 0.0278, "vx_target": -0.132, "speed_xy_reported": 0.034}, {"t": 37.8, "vx": -0.0247, "vx_target": -0.15, "speed_xy_reported": 0.079}, {"t": 38.1, "vx": -0.1054, "vx_target": -0.15, "speed_xy_reported": 0.094}, {"t": 38.4, "vx": -0.0753, "vx_target": -0.15, "speed_xy_reported": 0.169}, {"t": 38.7, "vx": 0.0226, "vx_target": -0.15, "speed_xy_reported": 0.073}, {"t": 39.0, "vx": 0.0362, "vx_target": -0.105, "speed_xy_reported": 0.056}, {"t": 39.3, "vx": -0.0897, "vx_target": -0.042, "speed_xy_reported": 0.079}, {"t": 39.6, "vx": -0.1094, "vx_target": -0.046, "speed_xy_reported": 0.077}, {"t": 39.9, "vx": -0.0379, "vx_target": -0.104, "speed_xy_reported": 0.235}, {"t": 40.2, "vx": 0.0112, "vx_target": -0.15, "speed_xy_reported": 0.09}, {"t": 40.5, "vx": -0.0532, "vx_target": -0.15, "speed_xy_reported": 0.032}, {"t": 40.8, "vx": -0.0085, "vx_target": -0.15, "speed_xy_reported": 0.062}, {"t": 41.1, "vx": -0.0761, "vx_target": -0.15, "speed_xy_reported": 0.055}, {"t": 41.4, "vx": -0.0637, "vx_target": -0.15, "speed_xy_reported": 0.155}, {"t": 41.7, "vx": -0.0854, "vx_target": -0.15, "speed_xy_reported": 0.1}, {"t": 42.0, "vx": -0.1352, "vx_target": -0.15, "speed_xy_reported": 0.08}, {"t": 42.3, "vx": -0.0726, "vx_target": -0.15, "speed_xy_reported": 0.125}, {"t": 42.6, "vx": -0.1004, "vx_target": -0.15, "speed_xy_reported": 0.031}, {"t": 42.9, "vx": -0.1162, "vx_target": -0.15, "speed_xy_reported": 0.112}, {"t": 43.2, "vx": -0.0614, "vx_target": -0.15, "speed_xy_reported": 0.101}, {"t": 43.5, "vx": -0.1533, "vx_target": -0.15, "speed_xy_reported": 0.101}, {"t": 43.8, "vx": -0.094, "vx_target": -0.15, "speed_xy_reported": 0.165}, {"t": 44.1, "vx": -0.0998, "vx_target": -0.15, "speed_xy_reported": 0.072}, {"t": 44.4, "vx": -0.0954, "vx_target": -0.15, "speed_xy_reported": 0.09}, {"t": 44.7, "vx": -0.0429, "vx_target": -0.15, "speed_xy_reported": 0.059}, {"t": 45.0, "vx": -0.0399, "vx_target": -0.15, "speed_xy_reported": 0.008}, {"t": 45.3, "vx": -0.0052, "vx_target": -0.15, "speed_xy_reported": 0.082}, {"t": 45.6, "vx": -0.0253, "vx_target": -0.15, "speed_xy_reported": 0.033}, {"t": 45.9, "vx": -0.0246, "vx_target": -0.15, "speed_xy_reported": 0.053}, {"t": 46.2, "vx": -0.0091, "vx_target": -0.15, "speed_xy_reported": 0.054}, {"t": 46.5, "vx": -0.0987, "vx_target": -0.15, "speed_xy_reported": 0.023}, {"t": 46.8, "vx": -0.0316, "vx_target": -0.15, "speed_xy_reported": 0.115}, {"t": 47.1, "vx": -0.0282, "vx_target": -0.15, "speed_xy_reported": 0.022}, {"t": 47.4, "vx": -0.01, "vx_target": -0.15, "speed_xy_reported": 0.078}, {"t": 47.7, "vx": 0.0232, "vx_target": -0.15, "speed_xy_reported": 0.023}, {"t": 48.0, "vx": -0.0415, "vx_target": -0.15, "speed_xy_reported": 0.071}, {"t": 48.3, "vx": -0.0928, "vx_target": -0.15, "speed_xy_reported": 0.193}, {"t": 48.6, "vx": -0.071, "vx_target": -0.15, "speed_xy_reported": 0.057}, {"t": 48.9, "vx": -0.1106, "vx_target": -0.15, "speed_xy_reported": 0.053}, {"t": 49.2, "vx": -0.0755, "vx_target": -0.15, "speed_xy_reported": 0.196}, {"t": 49.5, "vx": -0.1124, "vx_target": -0.15, "speed_xy_reported": 0.043}, {"t": 49.8, "vx": -0.0939, "vx_target": -0.15, "speed_xy_reported": 0.111}, {"t": 50.1, "vx": -0.0435, "vx_target": -0.15, "speed_xy_reported": 0.075}, {"t": 50.4, "vx": -0.0598, "vx_target": -0.15, "speed_xy_reported": 0.025}, {"t": 50.7, "vx": -0.0077, "vx_target": -0.15, "speed_xy_reported": 0.021}, {"t": 51.0, "vx": -0.0224, "vx_target": -0.15, "speed_xy_reported": 0.017}, {"t": 51.3, "vx": -0.0237, "vx_target": -0.15, "speed_xy_reported": 0.118}, {"t": 51.6, "vx": 0.0408, "vx_target": -0.15, "speed_xy_reported": 0.077}, {"t": 51.9, "vx": 0.0081, "vx_target": -0.15, "speed_xy_reported": 0.037}, {"t": 52.2, "vx": -0.0275, "vx_target": -0.15, "speed_xy_reported": 0.103}, {"t": 52.5, "vx": -0.0008, "vx_target": -0.15, "speed_xy_reported": 0.033}, {"t": 52.8, "vx": 0.0121, "vx_target": -0.15, "speed_xy_reported": 0.073}, {"t": 53.1, "vx": 0.0378, "vx_target": -0.15, "speed_xy_reported": 0.039}, {"t": 53.4, "vx": -0.0253, "vx_target": -0.15, "speed_xy_reported": 0.036}, {"t": 53.7, "vx": -0.0367, "vx_target": -0.15, "speed_xy_reported": 0.152}, {"t": 54.0, "vx": -0.0628, "vx_target": -0.15, "speed_xy_reported": 0.064}, {"t": 54.3, "vx": -0.1242, "vx_target": -0.142, "speed_xy_reported": 0.07}, {"t": 54.6, "vx": -0.0863, "vx_target": -0.079, "speed_xy_reported": 0.144}, {"t": 54.9, "vx": -0.0794, "vx_target": -0.017, "speed_xy_reported": 0.154}, {"t": 55.2, "vx": -0.0432, "vx_target": 0.0, "speed_xy_reported": 0.048}, {"t": 55.5, "vx": -0.0545, "vx_target": 0.0, "speed_xy_reported": 0.004}, {"t": 55.8, "vx": 0.0143, "vx_target": 0.0, "speed_xy_reported": 0.018}, {"t": 56.1, "vx": 0.0066, "vx_target": 0.0, "speed_xy_reported": 0.045}, {"t": 56.4, "vx": -0.0017, "vx_target": 0.0, "speed_xy_reported": 0.044}, {"t": 56.7, "vx": -0.01, "vx_target": 0.0, "speed_xy_reported": 0.066}, {"t": 57.0, "vx": 0.0464, "vx_target": 0.0, "speed_xy_reported": 0.119}, {"t": 57.3, "vx": 0.0333, "vx_target": 0.0, "speed_xy_reported": 0.086}, {"t": 57.6, "vx": 0.0274, "vx_target": 0.0, "speed_xy_reported": 0.075}, {"t": 57.9, "vx": -0.0434, "vx_target": 0.0, "speed_xy_reported": 0.045}, {"t": 58.2, "vx": -0.001, "vx_target": 0.0, "speed_xy_reported": 0.185}, {"t": 58.5, "vx": 0.0157, "vx_target": 0.0, "speed_xy_reported": 0.113}, {"t": 58.8, "vx": -0.0367, "vx_target": 0.0, "speed_xy_reported": 0.101}, {"t": 59.1, "vx": -0.0546, "vx_target": 0.0, "speed_xy_reported": 0.034}, {"t": 59.4, "vx": 0.0475, "vx_target": 0.0, "speed_xy_reported": 0.068}, {"t": 59.7, "vx": 0.0139, "vx_target": 0.0, "speed_xy_reported": 0.209}, {"t": 60.0, "vx": -0.0523, "vx_target": 0.0, "speed_xy_reported": 0.069}, {"t": 60.3, "vx": 0.0346, "vx_target": 0.0, "speed_xy_reported": 0.087}, {"t": 60.6, "vx": 0.0293, "vx_target": 0.0, "speed_xy_reported": 0.086}, {"t": 60.9, "vx": 0.0021, "vx_target": 0.0, "speed_xy_reported": 0.125}, {"t": 61.2, "vx": -0.0144, "vx_target": 0.0, "speed_xy_reported": 0.198}, {"t": 61.5, "vx": 0.0272, "vx_target": 0.0, "speed_xy_reported": 0.117}, {"t": 61.8, "vx": -0.0783, "vx_target": 0.0, "speed_xy_reported": 0.102}, {"t": 62.1, "vx": -0.0348, "vx_target": 0.0, "speed_xy_reported": 0.228}, {"t": 62.4, "vx": 0.0684, "vx_target": 0.0, "speed_xy_reported": 0.071}, {"t": 62.7, "vx": -0.0719, "vx_target": 0.0, "speed_xy_reported": 0.233}, {"t": 63.0, "vx": -0.0937, "vx_target": 0.0, "speed_xy_reported": 0.028}, {"t": 63.3, "vx": 0.0553, "vx_target": 0.0, "speed_xy_reported": 0.044}, {"t": 63.6, "vx": 0.0115, "vx_target": 0.0, "speed_xy_reported": 0.191}, {"t": 63.9, "vx": -0.0486, "vx_target": 0.0, "speed_xy_reported": 0.123}, {"t": 64.2, "vx": 0.0079, "vx_target": 0.0, "speed_xy_reported": 0.039}, {"t": 64.5, "vx": 0.0423, "vx_target": 0.0, "speed_xy_reported": 0.06}, {"t": 64.8, "vx": -0.0835, "vx_target": 0.0, "speed_xy_reported": 0.033}, {"t": 65.1, "vx": 0.004, "vx_target": 0.0, "speed_xy_reported": 0.203}, {"t": 65.4, "vx": 0.0731, "vx_target": 0.0, "speed_xy_reported": 0.123}, {"t": 65.7, "vx": -0.0725, "vx_target": 0.0, "speed_xy_reported": 0.071}, {"t": 66.0, "vx": -0.0286, "vx_target": 0.0, "speed_xy_reported": 0.063}, {"t": 66.3, "vx": 0.0418, "vx_target": 0.0, "speed_xy_reported": 0.115}, {"t": 66.6, "vx": -0.0244, "vx_target": 0.0, "speed_xy_reported": 0.059}, {"t": 66.9, "vx": 0.0112, "vx_target": 0.0, "speed_xy_reported": 0.012}, {"t": 67.2, "vx": 0.0254, "vx_target": -0.05, "speed_xy_reported": 0.033}, {"t": 67.5, "vx": -0.0827, "vx_target": -0.112, "speed_xy_reported": 0.15}, {"t": 67.8, "vx": -0.0521, "vx_target": -0.15, "speed_xy_reported": 0.047}, {"t": 68.1, "vx": -0.1441, "vx_target": -0.15, "speed_xy_reported": 0.142}, {"t": 68.4, "vx": -0.1128, "vx_target": -0.15, "speed_xy_reported": 0.168}, {"t": 68.7, "vx": -0.1401, "vx_target": -0.15, "speed_xy_reported": 0.074}, {"t": 69.0, "vx": -0.1181, "vx_target": -0.15, "speed_xy_reported": 0.211}, {"t": 69.3, "vx": -0.1023, "vx_target": -0.15, "speed_xy_reported": 0.061}, {"t": 69.6, "vx": -0.1287, "vx_target": -0.15, "speed_xy_reported": 0.099}, {"t": 69.9, "vx": -0.0604, "vx_target": -0.15, "speed_xy_reported": 0.1}, {"t": 70.2, "vx": -0.1114, "vx_target": -0.15, "speed_xy_reported": 0.048}, {"t": 70.5, "vx": -0.1068, "vx_target": -0.15, "speed_xy_reported": 0.181}, {"t": 70.8, "vx": -0.0736, "vx_target": -0.15, "speed_xy_reported": 0.116}, {"t": 71.1, "vx": -0.1097, "vx_target": -0.15, "speed_xy_reported": 0.044}, {"t": 71.4, "vx": -0.0266, "vx_target": -0.15, "speed_xy_reported": 0.096}, {"t": 71.7, "vx": -0.0731, "vx_target": -0.15, "speed_xy_reported": 0.073}, {"t": 72.0, "vx": -0.0827, "vx_target": -0.15, "speed_xy_reported": 0.153}, {"t": 72.3, "vx": -0.021, "vx_target": -0.15, "speed_xy_reported": 0.014}, {"t": 72.6, "vx": -0.0217, "vx_target": -0.15, "speed_xy_reported": 0.037}, {"t": 72.9, "vx": -0.0006, "vx_target": -0.15, "speed_xy_reported": 0.121}, {"t": 73.2, "vx": 0.02, "vx_target": -0.15, "speed_xy_reported": 0.027}, {"t": 73.5, "vx": -0.0224, "vx_target": -0.15, "speed_xy_reported": 0.075}, {"t": 73.8, "vx": 0.0063, "vx_target": -0.15, "speed_xy_reported": 0.091}, {"t": 74.1, "vx": 0.0177, "vx_target": -0.15, "speed_xy_reported": 0.02}, {"t": 74.4, "vx": 0.024, "vx_target": -0.15, "speed_xy_reported": 0.111}, {"t": 74.7, "vx": -0.0022, "vx_target": -0.15, "speed_xy_reported": 0.039}, {"t": 75.0, "vx": -0.0031, "vx_target": -0.15, "speed_xy_reported": 0.115}, {"t": 75.3, "vx": 0.0218, "vx_target": -0.15, "speed_xy_reported": 0.11}, {"t": 75.6, "vx": -0.0238, "vx_target": -0.15, "speed_xy_reported": 0.069}, {"t": 75.9, "vx": -0.101, "vx_target": -0.15, "speed_xy_reported": 0.17}, {"t": 76.2, "vx": -0.1224, "vx_target": -0.15, "speed_xy_reported": 0.103}, {"t": 76.5, "vx": -0.0892, "vx_target": -0.15, "speed_xy_reported": 0.016}, {"t": 76.8, "vx": -0.0121, "vx_target": -0.15, "speed_xy_reported": 0.087}, {"t": 77.1, "vx": 0.0073, "vx_target": -0.108, "speed_xy_reported": 0.032}, {"t": 77.4, "vx": 0.0262, "vx_target": -0.05, "speed_xy_reported": 0.068}, {"t": 77.7, "vx": -0.0009, "vx_target": 0.0, "speed_xy_reported": 0.133}, {"t": 78.0, "vx": -0.0476, "vx_target": 0.0, "speed_xy_reported": 0.018}];
+const TARGET = 0.150; // forward-drive target reference line (robot also drove backward at times)
+
+const svg = document.getElementById('chart');
+const tooltip = document.getElementById('tooltip');
+const wrap = document.getElementById('chartWrap');
+const W = 700, H = 320;
+const M = { top: 16, right: 16, bottom: 34, left: 44 };
+const plotW = W - M.left - M.right;
+const plotH = H - M.top - M.bottom;
+
+const tMin = 0, tMax = Math.max(...data.map(d => d.t));
+const vMin = Math.min(...data.map(d => d.vx), -0.05);
+const vMax = Math.max(...data.map(d => d.vx), TARGET + 0.05);
+const pad = (vMax - vMin) * 0.08;
+const yMin = vMin - pad, yMax = vMax + pad;
+
+function x(t) { return M.left + (t / tMax) * plotW; }
+function y(v) { return M.top + (1 - (v - yMin) / (yMax - yMin)) * plotH; }
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+// negative-value band (below zero)
+if (yMin < 0) {
+  svg.appendChild(svgEl('rect', {
+    class: 'neg-band', x: M.left, y: y(0), width: plotW, height: y(yMin) - y(0)
+  }));
+}
+
+// gridlines (y ticks)
+const yTickCount = 5;
+const yStep = (yMax - yMin) / yTickCount;
+for (let i = 0; i <= yTickCount; i++) {
+  const v = yMin + i * yStep;
+  const gy = y(v);
+  svg.appendChild(svgEl('line', { class: 'grid-line', x1: M.left, x2: W - M.right, y1: gy, y2: gy }));
+  const label = svgEl('text', { class: 'axis-label', x: M.left - 8, y: gy + 3, 'text-anchor': 'end' });
+  label.textContent = v.toFixed(2);
+  svg.appendChild(label);
+}
+
+// x ticks
+const xTickCount = 6;
+for (let i = 0; i <= xTickCount; i++) {
+  const t = (tMax / xTickCount) * i;
+  const gx = x(t);
+  const label = svgEl('text', { class: 'axis-label', x: gx, y: H - M.bottom + 16, 'text-anchor': 'middle' });
+  label.textContent = t.toFixed(1) + 's';
+  svg.appendChild(label);
+}
+
+// axis line
+svg.appendChild(svgEl('line', { class: 'axis-line', x1: M.left, x2: W - M.right, y1: M.top + plotH, y2: M.top + plotH }));
+
+// zero line
+svg.appendChild(svgEl('line', { class: 'zero-line', x1: M.left, x2: W - M.right, y1: y(0), y2: y(0) }));
+
+// target line
+svg.appendChild(svgEl('line', { class: 'target-line', x1: M.left, x2: W - M.right, y1: y(TARGET), y2: y(TARGET) }));
+const targetLabel = svgEl('text', { class: 'ref-label', x: W - M.right - 4, y: y(TARGET) - 5, 'text-anchor': 'end' });
+targetLabel.textContent = 'target 0.150';
+svg.appendChild(targetLabel);
+
+// series line
+let pathD = '';
+data.forEach((d, i) => {
+  const cmd = i === 0 ? 'M' : 'L';
+  pathD += `${cmd}${x(d.t).toFixed(2)},${y(d.vx).toFixed(2)} `;
+});
+svg.appendChild(svgEl('path', { class: 'series-line', d: pathD }));
+
+// dots
+data.forEach(d => {
+  svg.appendChild(svgEl('circle', {
+    class: 'dot' + (d.vx < 0 ? ' dot-neg' : ''), cx: x(d.t), cy: y(d.vx), r: 4
+  }));
+});
+
+// crosshair
+const crosshair = svgEl('line', { class: 'crosshair', y1: M.top, y2: M.top + plotH });
+svg.appendChild(crosshair);
+
+// hover hit areas
+data.forEach((d, i) => {
+  const hit = svgEl('circle', { cx: x(d.t), cy: y(d.vx), r: 12, fill: 'transparent' });
+  hit.addEventListener('mouseenter', () => {
+    crosshair.setAttribute('x1', x(d.t));
+    crosshair.setAttribute('x2', x(d.t));
+    crosshair.style.opacity = 1;
+    const rect = svg.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const scale = rect.width / W;
+    tooltip.style.left = (x(d.t) * scale) + 'px';
+    tooltip.style.top = (y(d.vx) * scale) + 'px';
+    tooltip.textContent = `t=${d.t.toFixed(2)}s  vx=${d.vx >= 0 ? '+' : ''}${d.vx.toFixed(3)} m/s`;
+    tooltip.style.opacity = 1;
+  });
+  hit.addEventListener('mouseleave', () => {
+    crosshair.style.opacity = 0;
+    tooltip.style.opacity = 0;
+  });
+  svg.appendChild(hit);
+});
+
+// table view
+const table = document.getElementById('dataTable');
+let tableHTML = '<thead><tr><th>t (s)</th><th>vx (m/s)</th><th>speed_xy reported</th></tr></thead><tbody>';
+data.forEach(d => {
+  tableHTML += `<tr><td>${d.t.toFixed(2)}</td><td class="${d.vx < 0 ? 'neg' : ''}">${d.vx >= 0 ? '+' : ''}${d.vx.toFixed(3)}</td><td>${d.speed_xy_reported.toFixed(3)}</td></tr>`;
+});
+tableHTML += '</tbody>';
+table.innerHTML = tableHTML;
+
+document.getElementById('toggleTable').addEventListener('click', (e) => {
+  const showing = table.style.display !== 'none';
+  table.style.display = showing ? 'none' : 'table';
+  document.getElementById('chartWrap').style.display = showing ? 'block' : 'none';
+  e.target.textContent = showing ? 'Show table' : 'Show chart';
+});
+</script>
+</body>
+</html>

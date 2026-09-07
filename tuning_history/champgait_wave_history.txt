@@ -1,0 +1,343 @@
+=== File header / log mirroring setup ===
+# mirror everything printed to a log file too, so it can be read back without copy-pasting.
+# same filename every run, overwritten each time.
+#
+# before truncating it, archive the previous run's log (same pattern manual_control.py/turn_test.py/
+# trot_demo.py now use) - copies go in run_log_archive/, timestamped. run_log_wave.txt itself always
+# means "the latest run" for anything reading it.
+
+=== File header / fork rationale ===
+# champgait_wave.py - fork of champgait.py (v6.11), Arda's "continuous CoM sway" idea.
+#
+# Forked on purpose instead of editing champgait.py directly, so if this experiment doesn't work out
+# it can't break the working discrete CoM-centering controller over there.
+#
+# What's different: champgait.py's v6 rewrite runs the gait as a discrete state machine per leg -
+# shift_com_to (converge), wait_for_safe_lift, do_swing, wait_for_settle - one leg at a time. Every
+# failure this session had traced back to the same pattern: a SHIFT phase that moves the CoM some
+# real distance, then a hard cut into SWING. The cycle-2 failures (FL slipping hard, 3x under
+# different tuning) always hit during a bigger-than-usual shift right at that discrete transition -
+# matches Arda's theory that stop/shift/restart creates real transients (yaw/pitch kicks, momentum
+# built up and killed every step) that a smooth motion wouldn't.
+#
+# The fix: never let the lateral CoM position stop moving. Make it a continuous function of gait
+# phase, y_com(t) = A*sin(omega*t), layered on top of the forward walking motion that was already
+# continuous (each leg's own fore-aft stance sweep - this part predates champgait.py's discrete
+# rewrite, see champ_old.py, the ancestor of the phase-clock code below). Since the sway is a smooth
+# sine tied to the same phase clock that sequences the leg swings, weight starts shifting onto the
+# next support tripod WHILE the current leg is still swinging, instead of "swing, stop, then figure
+# out the next shift" - so there's no sudden discrete moment for a pivot/slip to happen at.
+#
+# champ_old.py already had this continuous phase clock (leg_phase_fracs/current_swing_leg/
+# foot_offset_for_leg below are lightly adapted from it) but its only weight-shift trick was a crude
+# fixed fore-aft bias (SHIFT_MAG_FRONT/BACK) on the other three legs during a swing - no real lateral
+# shift at all, probably why it eventually needed the discrete CoM-centering rewrite in the first
+# place (nothing was actually pushing the CoM to the right side of the support polygon). This fork
+# keeps champgait.py's real fix for that - the 3-DOF leg_ik_3d (ABAD-driven lateral shift) plus its
+# reach-aware max_safe_fy/clamp_fy - and drives the same body_shift[1] (fy) continuously off the sine
+# instead of a converge-and-stop shift_com_to loop.
+#
+# Everything not about gait generation - leg_ik/leg_ik_3d/rotate, IMU + ground-truth telemetry,
+# support-polygon/ZMP/capture-point math, pitch/roll/yaw correction, the safety-abort watchdog - is
+# carried over unchanged from champgait.py (v6.11). Only the stuff between the "CONTINUOUS GAIT"
+# markers below is new.
+
+=== Gait constants section header (HEADS UP note) ===
+# gait constants - unchanged from champgait.py v6.11 (STANCE_FZ, step lengths, swing heights, reach
+# budget - already tuned/validated against this leg's real geometry).
+#
+# HEADS UP before the next run: this whole file (PITCH_RATE_DAMPING's comment below included, the
+# one about gains being back at "p_gain=50/d_gain=2") was tuned against a much lighter CAD export.
+# model.sdf has since been re-exported with thigh+shank mass ~3x and the ABAD/hip unit ~7x heavier,
+# and p_gain/d_gain were re-tuned to 265/10.6 for a different (trot) gait, not this one. Nothing here
+# has been touched since either change. Treat the next run as a from-scratch check against the new
+# mass+gains, not an assumption that the old tuning (GAIT_PERIOD, STEP_LENGTH, SWAY_AMPLITUDE,
+# X_LEAN_AMPLITUDE, the correction-loop constants, all of it) still holds - check run_log_wave.txt
+# before touching any of it.
+
+=== GAIT_PERIOD ===
+# v3 fix - was 6.0 (champ_old.py's walking pace). At 6.0 the sway's own peak
+# rate of change is 0.06*2pi/3.0 = 0.126 m/s, 3.35x faster than champgait.py's
+# proven-safe CoM-shift rate (SHIFT_STEP_MAX/CONTROL_DT = 0.00075/0.02 =
+# 0.0375 m/s - itself already tuned down twice to stop slipping, see SHIFT_KP's
+# v6.8 comment). The v2 fix (peak lean at swing onset instead of mid-swing)
+# still fell the same way, which rules out timing and points at rate: a
+# 9.78 m/s^2 lateral accel spike showed up during ease-in with all 4 feet
+# still planted and no swing happening - so the shift itself was just too fast,
+# not badly timed. 24.0 gets the sway's peak rate down to 0.0314 m/s (computed
+# below), safely under the 0.0375 cap. Makes the walk ~4x slower than
+# champ_old.py's pace - that's the real cost of moving this much CoM weight
+# without slipping. MAX_SHIFT_RATE below is a hard backstop regardless.
+
+=== SWING_DUTY ===
+# % of GAIT_PERIOD one leg spends swinging - same as champ_old.py. 4*0.15=0.6,
+# not 1.0, so 40% of the cycle has all four feet down at once - more margin
+# than a duty factor that keeps a leg always in the air.
+
+=== CoM lateral sway design rationale (before SWAY_AMPLITUDE) ===
+# Arda's continuous lateral CoM sway: y_com(t) = A*sin(omega*t)
+# GAIT_ORDER=[BR,FL,FR,BL] alternates right/left/right/left, so the CoM only needs to lean fully to
+# one side and back twice per GAIT_PERIOD (not four times) - once for the BR/FR pair, once for the
+# FL/BL pair. So the sway's period is GAIT_PERIOD/2, not the full GAIT_PERIOD.
+#
+# Sign convention: OY is +1=left/-1=right, and this file's fy convention (from champgait.py's
+# shift_com_to sign fix) is that increasing fy pushes the body toward -y (right), since a planted
+# foot is fixed and a bigger foot-target offset moves the body the opposite way. Together that means:
+# push the CoM toward negative fy (right) while a right leg (BR, FR) is swinging, so the other three
+# legs (now further left) can support it - and toward positive fy (left) while a left leg (FL, BL)
+# is swinging.
+#
+# v2 fix - used to peak at mid-swing (global_phase = LEG_PHASE_OFFSET[leg] + SWING_DUTY/2). That
+# meant the lean was only cos(54deg) = 59% of full amplitude at the exact moment a leg lifts off
+# (swing onset), so the robot started each swing on a still-transitioning, under-leaned CoM instead
+# of an already-settled one. Confirmed in a failing run's log: gait engaged at fy=-0.0353
+# (= -0.06*0.588) and started diverging (pitch/yaw/x-slip) the instant BR left the ground, before the
+# lean had even finished. Fix: zero the phase offset so the peak lands at swing onset instead of
+# mid-swing - body is already fully leaned when a leg lifts, and just relaxes back toward center/the
+# other lean during the swing instead of still fighting to get there:
+#     y_com(phase) = -SWAY_AMPLITUDE * cos(2*pi * phase / 0.5)
+# Check: BR onset (phase=0): cos(0)=1 -> -A, full right lean, already there. FL onset (0.25):
+# cos(pi)=-1 -> +A, full left lean. FR onset (0.5): cos(2pi)=1 -> -A. BL onset (0.75): cos(3pi)=-1 ->
+# +A. All four line up on their own swing onsets for free, since SWING_DUTY's legs are spaced by
+# exactly half the sway period (0.25 vs 0.5).
+
+=== SWAY_AMPLITUDE ===
+# meters - similar to the lateral moves champgait.py's discrete shift_com_to
+# already used per step (~0.05-0.09m observed), well inside max_safe_fy's
+# reach budget at typical fx (~0.10-0.11m there).
+
+=== MAX_SHIFT_RATE ===
+# v3: m/s hard cap on how fast body_shift[1]/[0] can actually move (applied
+# in control_loop below) - same as champgait.py's proven-safe
+# SHIFT_STEP_MAX/CONTROL_DT rate (0.00075/0.02). GAIT_PERIOD=24.0 already
+# keeps the sway's peak rate under this so it shouldn't normally bind - it's
+# just a backstop so body_shift can never move faster than the known-safe
+# rate, whatever future changes to GAIT_PERIOD/SWAY_AMPLITUDE/
+# SWAY_PERIOD_FRAC do to the curve.
+
+=== y_com_target v7 fix ===
+# v7 fix: swapped the continuous cosine above for a piecewise hold-during-swing /
+# transition-during-quad-stance shape, mirroring x_com_target's already-proven structure below.
+# Found via actual CoM/ZMP/capture-point telemetry: the cosine's period is locked to SWING_DUTY so
+# its peak does land at swing onset, but that says nothing about how long it stays near the peak.
+# SWING_DUTY=0.15 is wider than the cosine's quarter-period (0.125), so on every swing the sway is
+# already past its peak and swinging back through zero before that leg's swing even ends - usually
+# recovers in time, but not always. On BL (last in GAIT_ORDER, phase [0.75,0.90)) one run's telemetry
+# showed the ZMP margin going outside partway through BL's swing, capture point following right
+# after, right as fy crossed zero and kept going - the CoM was leaning back toward BL's now-unsupported
+# side before BL's foot was even down. Pitch grew unrecovered into a SAFETY ABORT ~3s later.
+# x_com_target already solves this for the fore-aft axis by holding a constant lean for a leg's whole
+# swing and only transitioning during quad-stance - do the same here instead of a sinusoid that's
+# phase-aligned but not duration-matched.
+
+=== x_com_target v4/v4.1 fix (fore-aft lean, before X_LEAN_AMPLITUDE) ===
+# v4 fix: fore-aft (x) CoM lean - the piece the "tips backwards" reports were pointing at. champgait.py's
+# discrete controller shifts to the centroid of the other three feet's actual world positions before
+# every lift, both x and y. This file only ever built the y half (left/right sway) and left
+# body_shift[0] (fx) at 0.0 the whole run. GAIT_ORDER=[BR,FL,FR,BL] is back,front,front,back, not
+# alternating, so unlike the sway (which gets free half-period symmetry from R/L alternating) the back
+# legs (BR, BL) are grouped together (onsets at phase 0 and 0.75, adjacent across the 1.0/0 wrap) and
+# front legs (FL, FR) are grouped together (onsets at 0.25 and 0.5) - a real two-state thing, not a sine.
+#
+# v4.1 sign fix: first version had the sign backwards. Using CMD_HIP_OFFSET's hip geometry
+# ((+-0.15, +-0.213)) plus each stance leg's foot_offset_for_leg(t) fx, the real centroid of the
+# remaining 3 feet at BR's onset works out to cx=+0.058 (forward, as expected since BR is a back leg).
+# But the same planted-foot-fixed rule already used for fy (a bigger commanded offset moves the body
+# the opposite way, since the foot is fixed by friction) applies to fx too: the right command to reach
+# that +0.058 centroid is fx=-0.058, not +0.058. The original code returned positive X at BR's onset -
+# exactly backwards - confirmed on the recording: the body slid left AND back, when BR lifting should
+# have needed left AND forward (left was already right from the y half; back-instead-of-forward is
+# exactly what a flipped fx sign gives you). Fixed by negating both branches and recalibrating the
+# magnitude from the real per-onset values (0.042-0.058 across the four onsets, not perfectly
+# symmetric since STEP_LENGTH_FRONT != STEP_LENGTH_BACK) instead of the original half-guessed 0.03.
+
+=== X_LEAN_AMPLITUDE ===
+# v6: 0.05 matched the static centroid shift, but pitch kept climbing through
+# both ease-in and the swing itself (not just a spike at swing onset), and
+# doubling the ease duration (2.0s->4.0s) didn't help - if anything pitch at
+# engagement got slightly worse. So it's not "ease ramp too fast", it's a
+# sustained pitch bias from holding this fx lean for the whole swing window,
+# which is ~3.6s at GAIT_PERIOD=24.0 - much longer than champgait.py's discrete
+# controller ever held a single shift. Trading some static margin (was
+# +0.058-0.085, still comfortably positive at 0.035) for less sustained torque.
+
+=== body_shift ===
+# v4: body_shift[0] (fx) is now driven too, by x_com_target(t) - see fix note
+# above. Both entries get overwritten every tick while gait is active, each
+# rate-limited independently by MAX_SHIFT_RATE. Kept as a 2-list instead of
+# two floats just so the per-leg loop below matches champgait.py's.
+
+=== PITCH_SIGN / CORRECTION_FRACTION v16 fix ===
+# flips the sign of pitch correction if the robot leans the wrong way
+# old note (pre-v16): said this was unchanged from champgait.py v6.11, gains back at the "realistic"
+# p_gain=50/d_gain=2 - wrong, see the v16 note below (live gains are actually 265/10.6).
+# v16 fix: the raised-cosine swing-height fix (v8) killed the touchdown thud, but the same
+# "theta saturates at MAX_CORRECTION_RAD then SAFETY ABORT" cascade kept happening - always during
+# BR's swing (the first one after gait engages), with body_shift held constant the whole time
+# (fx=-0.0350 fy=-0.0600, confirmed in the log). A constant disturbance held for 3.6s should settle to
+# a bounded offset, not grow. But theta sampled every ~0.5s through one BR swing: -2.05, +2.27, +0.52,
+# -3.96, -1.25, +5.71, -8.90 deg, then saturating at the full +20.05 deg clamp right as the abort
+# fires - alternating sign, growing magnitude, classic underdamped loop, not a one-off. Roll's own
+# correction (ROLL_ABAD_FRACTION), same kind of loop, stayed bounded and converged - so it's specific
+# to theta's gains, not every postural loop. What actually changed: CORRECTION_FRACTION/
+# PITCH_RATE_DAMPING below were tuned for champgait.py v6.11's assumed p_gain=50/d_gain=2, but the
+# live model.sdf gains are confirmed at p_gain=265/d_gain=10.6 - 5.3x stiffer. Same commanded theta
+# now makes ~5.3x the correcting force it was tuned for, which is exactly the kind of change that
+# pushes a stable loop into oscillation. Fix: scale CORRECTION_FRACTION and PITCH_RATE_DAMPING down by
+# 1/5.3 so the effective torque-per-unit-pitch-error matches what v6.11 was actually tuned for. Only
+# theta's gains move - ROLL_ABAD_FRACTION stays, roll isn't showing this problem.
+
+=== LEG_LR / YAW_RATE_DAMPING v9 fix ===
+# +1/-1 per leg, mirrors yaw correction left vs right
+# v9: v7's mistake was doubling YAW_FX_GAIN, YAW_RATE_DAMPING, and MAX_YAW_FX all at once, so there
+# was no way to tell which one caused the regression (2 falls, yaw got WORSE - +30.2deg net turn vs
+# v8's +9.9 to +22.5deg range over 4 clean runs). Logs pointed at the D-term specifically:
+# yaw_d = YAW_RATE_DAMPING * gyro_yaw_rate produced nonzero fx_term even with zero actual yaw error
+# (err=+0.00deg during ease-in, but fx_term still moved from raw gyro noise) - it's reacting to sensor
+# jitter, not real drift, and amplifying that just injects noise into the pitch balance.
+# v9 isolates the two terms: disable the noisy D-term entirely (0.0), and give the P-term (a real,
+# validated error signal) a modest 1.5x bump (not 2x) to make up for the correction only running during
+# the shorter non-swing part of the now much-longer GAIT_PERIOD=24 cycle. MAX_YAW_FX raised to match so
+# the clamp doesn't cap the bumped gain. Smaller, single-variable change on purpose, to avoid repeating
+# v7's mistake - watch the next few runs for yaw drift actually dropping and no new pitch/roll wobble.
+
+=== YAW_RATE_DAMPING / YAW_FEEDFORWARD_BIAS v10 note ===
+# D-term gain for yaw rate, disabled (see note above)
+# v10: constant feedforward nudge (see the yaw_correction comment below for the reasoning). Small
+# relative to MAX_YAW_FX (~15% of the clamp) and similar in size to the P-term's typical values for
+# real errors, so it can meaningfully offset a chronic per-cycle bias without being able to dominate
+# or destabilize on its own.
+
+=== YAW_FEEDFORWARD_BIAS / YAW_FX_GAIN v17 fix ===
+# constant nudge added to yaw correction
+# v17 fix: v16 (scaling down the pitch gains for the confirmed 5.3x stiffer joints) worked - theta
+# stayed under ~1 deg through 60+ seconds and 2+ full cycles on a run that previously would've aborted
+# in cycle 1 - but that just exposed the next problem: yaw_err climbed continuously the whole time,
+# 15.34 -> 20.30 -> 22.28 -> 23.41 -> 25.30 -> 26.76 -> 27.71 -> 28.19 deg by t=64, never leveling off,
+# while yaw_correction (p+d+bias) sat at ~0.013, nowhere near the MAX_YAW_FX=0.0375 clamp. So this
+# isn't a correction hitting its ceiling, it's just too weak - the P-term has headroom left but can't
+# arrest the drift. Matches what was visually seen too: feet slipping/scrubbing, which makes sense if
+# the body is yawed 25-28 deg off the gait's assumed heading, dragging every stance foot sideways
+# against friction each cycle. Fix: double YAW_FX_GAIN (0.045->0.09) for twice the corrective
+# authority, and raise MAX_YAW_FX to match (0.0375->0.075) so the clamp doesn't cap the doubled gain
+# at the large errors this run already hit - same "raise the gain, raise the headroom to match" move
+# v9 used to fix v7's regression. YAW_RATE_DAMPING stays 0.0 (still noisy per v9), YAW_FEEDFORWARD_BIAS
+# untouched - only the P-term moves. Watch for yaw actually leveling off/reversing instead of climbing
+# past 28 deg, and no new instability from the bigger correction.
+
+=== MAX_YAW_FX / YAW_FX_GAIN v18 fix ===
+# v9 value: clamp for yaw correction (superseded below)
+# v18 fix: v17 confirmed the direction was right - two clean "sequence complete" runs, peak yaw_err
+# dropping each time (was climbing past 28 forever -> peaked 22, ended 15.6 -> peaked 17, ended
+# 7.7-10) - but still nowhere near saturating: fx_term topped out at +0.0149-0.0151 against the
+# MAX_YAW_FX=0.075 clamp, only ~20% of headroom even at peak error (~17deg). Same tell as v17, just
+# milder: an under-powered P-term. Fix: double YAW_FX_GAIN again (0.09->0.18), MAX_YAW_FX to match
+# (0.075->0.15) - same validated move as before, not a new mechanism. YAW_RATE_DAMPING stays 0.0,
+# YAW_FEEDFORWARD_BIAS untouched, same as v17. Watch for peak/settling yaw_err dropping further
+# without hitting the new clamp, and check for no new oscillation (unlikely for a P-only loop, but
+# this is the third gain bump in a row on the same term, worth checking).
+
+=== MAX_YAW_FX v19 reverted ===
+# v18 value: clamp for yaw correction (superseded below)
+# v19 (reverted): v18 held for three runs (peak yaw_err 17.8 -> 15.6 -> 13.6, net turn down to
+# +5.1deg) with fx_term using only ~25% of its clamp, so the same "double it again" move was tried:
+# YAW_FX_GAIN 0.18->0.36, MAX_YAW_FX matched 0.15->0.3. Went the wrong way: peak yaw_err jumped back up
+# to +23.75deg (worse than v18's 13.6), net turn ended at +15.1deg (worse than v18's +5.1), and fx_term
+# topped out at +0.1442 - the correction itself is now big enough to perturb the gait instead of just
+# canceling drift (pitch/roll also got more excited: +4.98/-6.04deg pitch, +2.51/-3.26deg roll, well
+# above the flat v18 runs). Same failure shape as v7's "pushed a gain too far" regression. v16/v17/v18
+# all had clear headroom-not-saturating evidence before bumping; this bump didn't have that margin, and
+# it broke the trend - so v19 is reverted. Back to v18's values.
+
+=== control_loop rate-limited shift (v3/v4 note) ===
+# which leg is swinging right now
+# v3/v4: rate-limited toward the ideal sway targets instead of assigning directly - still
+# continuous (never freezes, never stops to converge), just capped at MAX_SHIFT_RATE so it
+# can't move faster than champgait.py's proven-safe shift rate. Now applied to both axes -
+# v4 added the x_com_target fore-aft lean alongside y_com_target.
+
+=== control_loop yaw v10 note (systematic drift) ===
+# derivative term of yaw correction (disabled)
+# v10: every run since the v8 revert (8/8 across v8 and v9) drifted yaw the same direction
+# (always positive) - a systematic per-cycle disturbance, not random noise. A pure P-term only
+# partially cancels a constant disturbance like that; it settles at a nonzero offset instead of
+# zero, which matches what's measured (bounded ~8-22deg, never near 0).
+
+=== control_loop yaw v11 fix (per-leg blackout) ===
+# this leg's target foot position
+# v11: yaw correction used to get zeroed for every leg whenever any leg was mid-swing (same
+# protection champgait.py uses) - which blacked it out for most of the cycle at
+# GAIT_PERIOD=24 (each swing ~3.6s), the real reason it could only ever partly cancel the
+# drift. That blackout exists to protect the 3 stance legs - pushing planted feet
+# asymmetrically while only 3 are grounded can tip an already-reduced support base. But that
+# doesn't apply to the leg that's itself swinging - nothing planted there, so nudging its
+# target doesn't move the body, just steers where that foot lands (real legged robots
+# correct heading this way a lot). So now: the swinging leg gets full correction (steering
+# via its own footfall), the other stance legs still get zero while someone else swings, and
+# all four get it during quad-stance - correction runs in parallel with the gait far more of
+# the time instead of only in the brief gaps between swings.
+
+=== control_loop t.start() timing v13 note (Thread creation site) ===
+# v13 diagnostic change: t.start() used to be called right here, before the model even finished
+# dropping into the world. That meant control_loop was PD-holding all 4 legs at foot_target=(0.0,-0.4)
+# through the whole chaotic drop/landing - whichever foot touched down first got a much bigger reaction
+# torque than the others, a plausible source of an uncontrolled yaw twist before crouch/gait ever ran a
+# single command. Isolating it: the Thread object is still created here (cheap, no side effects), but
+# .start() itself moved to after "waiting for the drop to settle" below, so no joint commands go out
+# until the robot's actually at rest. Check start_yaw across a few runs both ways to see if this was
+# (part of) the source of the yaw offset.
+
+=== SPEED_SETTLE_THRESHOLD ===
+# m/s - ported from today's trot_demo.py/manual_control.py fixes.
+# Treat the body as "stopped enough" once measured speed drops to this
+# or below, not just when a fixed timer runs out - used in
+# ease_out_of_gait and the speed-gated tail below.
+
+=== t.start() timing v13 note (call site) ===
+# v13: control_loop.start() moved here (used to be called before the drop-settle wait above) - see
+# the comment where the Thread object is created for the full reasoning. No joint commands have been
+# published yet; legs were free/unactuated through the whole drop.
+
+=== Crouch settle wait v14 fix ===
+# v14 fix: this used to be a fixed 20*0.1s=2.0s wait regardless of whether the body had actually
+# stopped bouncing from the crouch - the one handoff in this file not gated on measured stillness
+# (every other one - ease_into_gait's cold start, ease_out_of_gait, the final tail - already is).
+# Evidence: a run whose crouch settle was still oscillating (pitch -6.88..+5.02deg, speed_xy up to
+# 0.30 m/s) right up to the fixed 2.0s cutoff fed that leftover energy into ease_into_gait, which
+# resonated into a growing oscillation (pitch swinging +-20deg through the ramp instead of damping
+# out) and tripped a SAFETY ABORT within 0.5s of gait starting (pitch 25.8deg). Two other runs whose
+# crouch settle was already calm (<1deg, low speed) at that same cutoff sailed through ease-in fine -
+# so the ease-in ramp isn't reliably the problem, a bad starting condition handed to it is. Gate the
+# wait on actual measured stillness (speed and pitch/roll, not just speed) instead of a clock, with a
+# capped max wait so a run that never quite settles can't hang forever.
+
+=== start_yaw logging v12 note ===
+# body yaw at the start of the run
+# v12: start_yaw was never logged anywhere. The last two runs' "net yaw turned" (relative to
+# start_yaw) diverged sharply from the absolute yaw in the "end of loop" telemetry (+7.8/+7.5deg vs
+# -11.81/-13.23deg) - only makes sense if start_yaw itself was around -19 to -21deg on those runs
+# instead of the ~0deg every earlier run implicitly had (numbers always matched before). Either the
+# world reset sometimes leaves residual orientation, or something else is going on - can't tell
+# without the actual value, so just log it directly instead of guessing again.
+
+=== Gait exit settle v15 fix ===
+# total planned time to walk, in seconds
+# v15 fix: the exit used to be a bare `elapsed >= total_duration: break`, handing off to
+# ease_out_of_gait() at whatever instant the wall clock hit, with no check that the body was
+# actually stable enough for that handoff. Evidence: a run that walked cleanly for all 3 cycles
+# (pitch/roll under ~2deg throughout) started a fast-growing pitch excursion at t=69.82 (+1.6deg,
+# climbing to +15.1deg by t=71.86) - still actively growing, not yet recovering - right as it
+# crossed the t=72.0 cutoff. ease_out_of_gait() grabbed foot_target/body_shift mid-disturbance and
+# just kept ramping; pitch hit +24.65deg one tick into "post-gait settle" and tripped the SAFETY
+# ABORT at 25.3deg. Same bug as trot_demo.py's original post-gait fall (a fixed-timer handoff
+# blind to body state) - same fix: let the gait's own phase-locked control (already correcting
+# pitch/roll every tick) run a bit longer past the nominal cutoff if the body isn't calm yet,
+# instead of handing off mid-disturbance. Capped so a persistently unsteady run can't hang here
+# forever.
+
+=== End-of-run wait note ===
+# ported from trot_demo.py: was a fixed 20 iterations (2.0s) regardless of state, which let a run
+# there declare "sequence complete" while the body was still visibly sliding. This gait's
+# always-3-feet-down static stability makes that less likely, but checking for real costs nothing -
+# gated on measured speed with a generous cap so a run that never quite settles still can't hang the
+# script.
