@@ -1,0 +1,501 @@
+=== LOGGING_SETUP ===
+# Tee everything to console + a log file, same as trot_demo.py's run_log_trot.txt.
+# Console output scrolls away, so this is how you go back and check what happened
+# after a fall.
+#
+# Archive the previous log before overwriting it (same as turn_test.py) - old copies
+# go in run_log_archive/ with a timestamp; run_log_manual.txt always means "the latest run".
+
+=== PITCH_RATE_LPF_ALPHA ===
+# was 0.2. PITCH_RATE_DAMPING's comment already said: if this loop needs
+                              # retuning, smooth the derivative more (lower this) before raising D again -
+                              # don't just throw a bigger D at a noisy signal. Confirmed with real data: a
+                              # fall during plain forward walking (roll correction off, so roll's not the
+                              # cause) showed latest_pitch_rate swinging wildly sample to sample (+37.5 ->
+                              # -37.1 -> +57.4 -> -56.6 deg/s) right up to the abort, theta_d about 2x
+                              # theta_p, and *SAT* never triggering - so it's not the clamp running out of
+                              # room, it's an oversized D-term chasing noise. At CONTROL_DT=0.02s, alpha=0.2
+                              # gives a ~0.1s (5-tick) time constant; halving to 0.10 doubles that to ~0.2s
+                              # (10 ticks) - enough to reject noise without being too slow to catch a real
+                              # fast tip (a real trot_demo.py pitch event took 0.3-0.6s, well outside 0.2s).
+                              # Watch the next runs for: does this calm pitch_rate/theta_d without bringing
+                              # back the slow-climb underdamped pattern PITCH_RATE_DAMPING's comment
+                              # describes, and does it delay reaction to a real fast tip too much. If
+                              # sustained-walk falls keep happening, try PITCH_RATE_DAMPING or
+                              # MAX_CORRECTION_RAD next, not cutting alpha further - both are already tuned
+                              # from real falls, and over-smoothing the derivative causes its own lag problem.
+
+=== TROT_PERIOD ===
+# was 1.6. Stride amplitude A = 0.5*vx*STANCE_DUTY*TROT_PERIOD in
+                            # foot_target_for_leg scales directly with this, so a shorter period means
+                            # shorter, more frequent strides at the same vx instead of big lunging ones -
+                            # less mass swinging per step. Worth trying because the recurring falls at
+                            # every p_gain/d_gain we tried (72.6 through 265) were almost always plain
+                            # forward/back walking with turn=0, not a turn or joint-gain problem (that
+                            # axis had plateaued). The legs got much heavier in the latest CAD export
+                            # (thigh+shank mass roughly tripled), so each stride swings a lot more mass
+                            # now, and the pitch-balance correction below (CORRECTION_FRACTION etc.) was
+                            # tuned for the old lighter legs and never revisited - shrinking the
+                            # disturbance itself felt safer to try first than retuning that loop blind.
+
+=== STANCE_DUTY ===
+# ported fix, was 0.5. At 0.5 the two pairs swing back-to-back with zero double-support
+                   # overlap - the instant one pair lands the other lifts, so the body's only ever on 2
+                   # legs, never 4. trot_demo.py root-caused its "huge periodic dips" to exactly this:
+                   # support narrows to 2 diagonal legs every half-cycle, every cycle, not occasionally.
+                   # Raising to 0.6 gives a real double-support window and cuts each leg's swing time by
+                   # 20% (SWING_DUTY = 1 - STANCE_DUTY, 0.5 -> 0.4). In trot_demo.py this fixed yaw
+                   # stability and raised average speed/distance. Two things to watch: (1) stride
+                   # amplitude A = 0.5*abs(vx)*STANCE_DUTY*TROT_PERIOD scales with STANCE_DUTY too, so
+                   # stride length also grows ~20% at the same vx - if turning gets less stable after
+                   # this, that's probably why; (2) by itself this did NOT shrink trot_demo.py's dip
+                   # amplitude (if anything slightly worse) - it took the feedforward pitch bias below on
+                   # top of it to actually fix that. Don't expect this alone to fix the dips here either.
+
+=== MAX_VX ===
+# m/s forward/back speed ceiling, was 0.15. User asked to speed things up a
+                            # bit; bumped ~13% (not all the way back to the old 0.20 this file already
+                            # cut once for stability). The last real run on this file was an actual fall
+                            # (the yaw-hold fix, now reverted - see YAW_HOLD_KP), so not the moment to
+                            # also stack a big speed bump on the already-fragile backward-walking case.
+                            # Pitch/roll tipping is the main risk at higher speed; FLIP_LIMIT_DEG's abort
+                            # is the backstop. Was cut from 0.20 after TROT_PERIOD/TURN_VX_GAIN got things
+                            # from "falls immediately every phase" to "clears most phases most runs,
+                            # occasionally aborts 0-2deg over the 25deg limit near the end of a phase" -
+                            # the remaining failures are a stride disturbance still a bit too big for this
+                            # heavier model, not a control-loop bug (the PITCH_RATE_DAMPING experiment
+                            # already showed retuning that loop blind makes it worse). Same lever as
+                            # TROT_PERIOD (stride amplitude A = 0.5*vx*STANCE_DUTY*TROT_PERIOD scales with
+                            # vx too), just on the ceiling instead of the period - a 25% cut in top speed
+                            # for real margin under the abort line. Watching the next runs (forward and
+                            # backward) for new aborts before raising this further.
+
+=== MAX_TURN ===
+# steering intensity, -1.0 (full left) to +1.0 (full right) - not a
+                            # calibrated rad/s. There's no measured-yaw-rate feedback in this file, so
+                            # it's open-loop: the code never checks whether it actually achieved the turn
+                            # it asked for.
+
+=== TURN_VX_GAIN ===
+# Converts steering intensity into a per-side forward-speed offset - see
+                             # foot_target_for_leg/control_loop. At full steering (+-1.0) each side's
+                             # leg_vx shifts by +-TURN_VX_GAIN, so a full turn with target_vx==0 drives
+                             # one side's legs forward and the other's backward - real differential-drive
+                             # rotation in place, since foot_target_for_leg gets its amplitude and
+                             # direction from this per-leg speed, not a bolted-on touchdown offset.
+                             #
+                             # History: started at MAX_VX, halved to 0.5*MAX_VX after run_log_turn_test.txt
+                             # showed rotation working but pitch escalating cycle-over-cycle during
+                             # full-strength turning (roll stayed bounded, ruling out roll/stance-narrowing -
+                             # it's the turn disturbance overpowering the pitch correction). That made pure
+                             # rotation and translate-only phases clean on the heavier model, after retuning
+                             # p_gain/d_gain up through 72.6->145->217->250->265 (282 overshot). But across
+                             # many runs at all those gains, "combined" (full vx AND full turn together) kept
+                             # failing - same overpowering mechanism, just needing translation+turn stacked
+                             # to trigger it. Cut to 0.35*MAX_VX, then with TROT_PERIOD=1.0 forward walk,
+                             # rotation, and back walk all cleared cleanly (max pitch ~18deg, well under
+                             # FLIP_LIMIT_DEG) - TROT_PERIOD turned out to be the real fix for plain-walking
+                             # falls. Combined linear+angular was still the only failing phase, and fails
+                             # fast: run_log_turn_test.txt showed pitch swinging -10 -> +14 -> -14deg within
+                             # ~1.8s of combined starting, then aborting at -26.5deg - an oscillation, not a
+                             # slow drift, so the stacked disturbance is still too strong for the pitch loop
+                             # to damp before it resonates. Cut further to 0.2*MAX_VX. If combined still
+                             # fails at this value, the next lever should be CORRECTION_FRACTION/
+                             # PITCH_RATE_DAMPING (untouched since the old lighter-leg model), not cutting
+                             # this further - below 0.2 it'd barely rotate at all while walking, which stops
+                             # being a fix and starts being "don't turn while moving."
+
+=== TURN_VX_GAIN_PURE ===
+# New fix - user reported "can't turn properly". Checked
+                            # run_log_manual.txt first: turn_target=+1.00 (D) held for 98 samples gave
+                            # +9.8deg net yaw (0.10deg/sample); turn_target=-1.00 (A) held for 287 samples
+                            # gave +39.3deg (0.14deg/sample) - same order of magnitude once normalized by
+                            # hold time, so this isn't a left/right sign-asymmetry bug (A was just held ~3x
+                            # longer). The real shared problem: ~0.1-0.14deg/sample is only about 1-3deg/sec
+                            # of actual rotation - TURN_VX_GAIN's comment already predicted exactly this
+                            # complaint, it just hadn't been tested against a real user turning in place
+                            # until now. Both directions stayed stable through the test (pitch never
+                            # exceeded ~9deg, nowhere near FLIP_LIMIT_DEG). Pure rotation (target_vx==0) was
+                            # never the case that got TURN_VX_GAIN cut to 0.2*MAX_VX - that history is all
+                            # about turning WHILE walking - so rather than raising the shared gain and
+                            # reopening that combined-motion pitch risk, splitting it: a separate, stronger
+                            # gain used only for pure in-place turning (target_vx ~0), leaving TURN_VX_GAIN
+                            # itself alone for whenever there's also forward/back motion. 0.4*MAX_VX doubles
+                            # pure-turn authority - a first step, not final; watching the next test for
+                            # usable rotation speed without new pitch/roll excursions before raising further.
+                            #
+                            # v2: was 0.4*MAX_VX. User held D for the entire run this time (591 samples) and
+                            # still reports "takes too long" AND "stalls in place at certain moments".
+                            # Checked the log - the stall part is real, not just slow-but-steady reading as
+                            # a stall: yaw fell only ~7deg across samples 361-441 (a multi-second dead patch)
+                            # then ~22deg across samples 481-521 (40 samples) - the per-sample rate swings
+                            # ~8x between slow and fast patches, not a smooth constant creep. Consistent with
+                            # real stick-slip: at this small a commanded differential, turn torque sometimes
+                            # can't overcome static ground friction until posture (pitch/roll, actively
+                            # swinging from the correction loop) drifts into a more favorable weight
+                            # distribution. More authority won't necessarily kill every stall if that's
+                            # right, but it directly attacks the "not enough torque" half of it, and there's
+                            # a known-safe ceiling to use instead of guessing: TURN_VX_GAIN's own history
+                            # says full-strength pure rotation caused pitch escalation, but 0.5*MAX_VX got
+                            # "pure rotation and translate-only phases reliably clean" - only the combined
+                            # case needed cutting further after that. Going to that already-validated
+                            # 0.5*MAX_VX ceiling (up from 0.4), not higher. If stalling persists even at this
+                            # safe max, that's the signal it's not a pure gain problem anymore, and the next
+                            # lever should be something else (MAX_TURN_ACCEL, joint gains, the friction/
+                            # contact model) rather than pushing past a ceiling this file's own history
+                            # already flagged as unsafe.
+                            #
+                            # v3 (reverted partway, was 0.5*MAX_VX): confirmed - stalling persisted at 0.5x,
+                            # exactly as flagged. But the log showed this isn't simple friction stiction: the
+                            # stall windows line up with real physical stumbles - one stretch had pitch surge
+                            # +1.8 -> +7.5deg AND body_xyz.x slide ~0.06m within a handful of samples, with
+                            # yaw briefly reversing before resuming. That's a real destabilization event, not
+                            # "not enough torque". Since 0.5*MAX_VX is a bigger disturbance than 0.4 was, and
+                            # this file's whole turn-tuning history is built on "less disturbance = more
+                            # stable" (why TURN_VX_GAIN itself got cut three times), backing off partway to
+                            # 0.4*MAX_VX while also gating the forward-walking-shaped feedforward pitch bias
+                            # out of pure rotation (see theta_ff's comment in control_loop - that bias was
+                            # only ever validated for a fore-aft disturbance, not a torsional one, and may
+                            # have just been adding noise). Testing both changes together since they're not
+                            # competing hypotheses - less raw disturbance and removing a mismatched extra
+                            # correction. Watching the next turn-in-place run for whether the stumbles
+                            # specifically go away (not just average speed) before deciding whether either
+                            # half actually mattered.
+
+=== CORRECTION_FRACTION ===
+# was 0.4. A manual run fell during plain continuous forward walking (W held,
+                           # turn=0 the whole time) - a real fall mid-walk, not a release/settle issue.
+                           # Pitch oscillated with growing amplitude almost from the start (-7.2, -10.8,
+                           # -17.9, -19.5, -24.0deg over ~18s) until it crossed the 25deg abort. Same
+                           # signature trot_demo.py had for its post-gait oscillation (big swinging pitch
+                           # that never settles, not a slow drift) - fixed there by cutting this same gain
+                           # 0.4->0.25, just never ported here. Cutting P instead of raising D
+                           # (PITCH_RATE_DAMPING) because raising D was already tried for a similar-looking
+                           # oscillation and made things clearly worse (derivative kick off a noisy signal -
+                           # see PITCH_RATE_DAMPING's comment).
+
+=== MAX_CORRECTION_RAD ===
+# reverted back from 0.45. Raised originally because several aborts showed
+                           # pitch climbing steadily to the limit instead of oscillating, like the
+                           # correction needed more headroom to arrest a developing lean. But a manual run
+                           # showed the real cost: pitch stayed well-behaved (mostly single digits) through
+                           # the whole walk, then right at release flipped sign and climbed steadily
+                           # positive (+6.0 -> +10.5 -> +16.9deg) while speed_xy kept climbing instead of
+                           # decaying (0.03 -> 0.11 -> 0.27 -> 0.35 m/s) - the correction loop overshooting
+                           # while trying to null out the walk's residual pitch bias, with 0.45's extra
+                           # headroom letting it swing past level into a real oscillation instead of just
+                           # damping the lean. Same "release -> destabilizes -> falls" pattern reported from
+                           # manual testing before, and this clamp was already a suspect back when it got
+                           # raised (just never reverted until now). Back to 0.35.
+
+=== PITCH_RATE_DAMPING ===
+# ported fix, was 0.15 (see the reverted history right below, kept for
+                           # context - that's about 0.15 vs 0.3, not this new value, and its lesson still
+                           # holds: don't jump back to 0.3 or higher). trot_demo.py hit the same periodic-
+                           # dip complaint this file's users reported, and root-caused it as a theta_d/
+                           # theta_p IMBALANCE, not a raw magnitude problem: with the old gain, theta_d
+                           # was regularly 3-30x the size of theta_p sample-to-sample, meaning "pitch
+                           # correction" was really just chasing pitch_rate noise instead of leaning
+                           # against the actual pitch angle. Halving to 0.075 (with IDLE_PITCH_RATE_DAMPING
+                           # halved to match below) brought the two terms back to roughly 1:1 in
+                           # trot_demo.py's validation runs. On its own this did NOT shrink the dip
+                           # amplitude there - it took a gait-timing change (STANCE_DUTY) and a
+                           # feedforward term (both below) to actually do that - but it's a real fix to a
+                           # real imbalance and worth carrying over regardless.
+                           # Reverted attempt: briefly tried 0.3 (doubled) to fix an underdamped-looking
+                           # oscillation, but it made things clearly worse - 3 straight runs failed
+                           # immediately in forward walk, including one violent one (pitch +8.4 -> +5.0 ->
+                           # abort at 26.1deg, with roll suddenly at 10.6deg and avg_yaw_rate=45.7deg/s - a
+                           # fast tip/spin, not a slow climb) within under a second of the gait starting.
+                           # latest_pitch_rate is a finite-difference derivative of a noisy signal, only
+                           # lightly smoothed (PITCH_RATE_LPF_ALPHA=0.2 at the time), so doubling its gain
+                           # likely amplified noise into real torque right at the crouch-to-gait transition
+                           # (when pitch is changing fastest and least predictably) instead of adding clean
+                           # damping - classic derivative kick. Back to 0.15 (now superseded by 0.075
+                           # above). If this loop needs retuning again, smooth the derivative more first
+                           # (lower PITCH_RATE_LPF_ALPHA) so it's trustworthy before raising the gain -
+                           # don't just throw a bigger D at the same noisy signal.
+
+=== IDLE_CORRECTION_FRACTION ===
+# ported fix. trot_demo.py hit this same problem: a reactive pitch
+                           # correction tuned for active walking, left running unconditionally even while
+                           # idle/at rest, turned into an unstable clamp-saturating oscillator once there
+                           # was nothing real left to correct - the live joint gains (p_gain=265/
+                           # d_gain=10.6) are about 5.3x stiffer than what CORRECTION_FRACTION/
+                           # PITCH_RATE_DAMPING above were tuned for (p_gain=50/d_gain=2). The fix there
+                           # wasn't a blanket gain cut (that broke active-walking stability) but a
+                           # phase-gated split: full gains while actually moving, this weaker 1/5.3-scaled
+                           # pair otherwise - see IDLE_CORRECTION_FRACTION in trot_demo.py for the full
+                           # reasoning (6-7 clean runs there, flat idle pitch/roll, no ringing). Porting it
+                           # here because this file's own history describes the same failure under a
+                           # different name: MAX_CORRECTION_RAD's comment shows pitch flipping sign and
+                           # climbing steadily right after release ("release -> destabilizes -> falls"),
+                           # speed_xy climbing instead of decaying - same overshoot mechanism, just
+                           # triggered by key-release instead of "trot complete". Gated on is_moving below
+                           # (this file's existing "released" signal) instead of adding a new flag.
+
+=== IDLE_PITCH_RATE_DAMPING ===
+# ported fix, was 0.028 (=0.15/5.3). Now 0.075/5.3 - keeps the same
+                           # idle/active ratio now that PITCH_RATE_DAMPING was halved above, so the two
+                           # stay proportional.
+
+=== FEEDFORWARD_PITCH_BIAS_RAD ===
+# ported fix, new mechanism not just a retuned gain.
+                           # After PITCH_RATE_DAMPING and STANCE_DUTY were ported above and neither alone
+                           # shrank trot_demo.py's per-swing dip, it added a different kind of
+                           # correction - anticipatory instead of reactive. The gains above only respond
+                           # after pitch/pitch_rate have already moved; this adds a small nose-up bias
+                           # timed to when a leg pair is swinging (known ahead of time from the gait
+                           # clock, not measured) - a half-sine that's zero at liftoff/touchdown and peaks
+                           # mid-swing, exactly when support narrows to 2 diagonal legs and the body's
+                           # most likely to pitch down. 5deg is deliberately conservative (roughly half
+                           # the typical dip depth seen in trot_demo.py's logs) since this is open-loop
+                           # and always-on rather than measured/gated. In trot_demo.py this brought dip
+                           # amplitude back down to the original pre-fix baseline while keeping
+                           # STANCE_DUTY's yaw/speed gains - this term, not the two gain changes above, is
+                           # what actually shrinks the dip. See theta_ff in control_loop() below.
+
+=== ROLL_ABAD_FRACTION ===
+# completing the A/B test: was 0.3, tested against this 0.0 baseline (see the
+                            # mirroring idea referenced at "abad = abad_geo + OY[leg]*roll_term" below).
+                            # The 0.3 run (flat, unmirrored roll_term applied the same to all 4 legs)
+                            # showed backward jolts and near-loss-of-balance "lifting" during plain
+                            # straight forward walking, lining up with roll_term spikes - so a
+                            # mirrored-per-leg version was tried next (geometrically the more "correct"
+                            # fix, matching how abad_geo's own sign is already mirrored via leg_ik_3d's oy
+                            # argument). Mirroring made it worse, not better - the very next run had an
+                            # actual safety abort (|pitch|=25.2deg) during a long, otherwise-plain backward
+                            # walk (turn_target=0 throughout), a real fall, worse than the earlier "close
+                            # to losing balance" symptom. The log shows pitch jumping sharply (e.g.
+                            # +0.9->+11.3deg, +5.5->+12.6deg, +6.4->+18.5deg) right after the largest
+                            # |roll_term| samples (-1.32, +1.31, +0.98) - the opposite of what a roll
+                            # correction should do. Likely reason: PAIR_A/PAIR_B each combine one LEFT and
+                            # one RIGHT leg in stance at once (FL+BR or FR+BL), so a left/right-mirrored
+                            # correction pushes opposite signs onto the two legs currently bearing the
+                            # body's weight, changing their relative effective length instead of just
+                            # shifting stance width - a plausible way to inject a pitch disturbance from
+                            # what was meant to be a pure roll fix, worse than the original flat version's
+                            # problem. Since both formulas made things worse than this file's original
+                            # working baseline (before either fix existed), doing what the diagnostic was
+                            # already pointing at: disable the term entirely and check whether roll
+                            # correction is worth having here at all before trying a third formula blind.
+
+=== YAW_HOLD_KP_INTRO ===
+# yaw hold while walking/idle but not actively steering
+# User report: "while walking backward, the yaw angle goes crazy". Checked run_log_manual.txt before
+# touching anything: this file has ZERO yaw correction of any kind - TURN_VX_GAIN's comment already
+# notes there's no measured-yaw-rate feedback here, but that was about steering accuracy, not drift
+# while turn_target sits at 0.00 the whole time. A straight backward run (S held, A/D never touched,
+# turn_target=0 for all 394 samples) drifted yaw from 0 to -57.4deg with nothing resisting it. The same
+# straight FORWARD run (W held, same sample count, turn_target=0 throughout) stayed within roughly
+# +/-10deg over the same span - so this is a real, backward-specific drift, not a display glitch or a
+# wraparound bug (a -72.9deg reading elsewhere in the log was a deliberate full in-place turn, which is
+# supposed to yaw a lot - that's steering working, not this problem, and isn't part of this comparison).
+# Why it's specifically backward isn't pinned down yet - could be a real geometric/CG asymmetry, could
+# be how foot_target_for_leg's direction-flip for vx<0 interacts with the diagonal trot pairs - but
+# either way, there's currently nothing here to correct heading drift the way trot_demo.py does (its
+# YAW_FX_GAIN/MAX_YAW_FX/yaw_integral).
+#
+# Can't just copy trot_demo.py's version as-is: that file only ever walks in a straight line (one fixed
+# heading baseline for the whole run), while this file's whole point is deliberate A/D steering -
+# correcting against one fixed heading would fight the user's own turns. Instead: only correct while
+# NOT actively turning (is_turning, same MOVE_EPS_TURN deadband already used for "released"), and lock
+# in a fresh target heading the moment turning stops rather than one baseline for the whole session -
+# so a turn-then-walk-straight sequence gets held to the heading it ended up at after the turn, not
+# dragged back to wherever it started. Only applied to the currently-swinging pair's legs (via LEG_LR),
+# same reasoning as trot_demo.py's yaw fix: pushing a planted stance leg's fx couples into pitch, but an
+# airborne swing leg's landing spot doesn't. Starting from trot_demo.py's own pre-v1/v2 gains
+# (YAW_FX_GAIN=0.15, MAX_YAW_FX=0.06) since those are already validated there as stable and
+# non-oscillating, rather than guessing new numbers.
+
+=== YAW_HOLD_KP ===
+# reverted, was 0.15. The first real test (backward walk, turn_target=0 the whole
+                    # time, same setup as the evidence run above) came back worse on both axes it could
+                    # plausibly affect: (1) yaw itself kept growing the whole time - error climbed +13.9
+                    # -> +20.4 -> +30.0 -> +39.6deg while yaw_hold_fx sat pinned near its max (+0.0555 to
+                    # +0.0600) for most of the run, i.e. it never had the authority to even slow the
+                    # drift, let alone hold it - same under-powered-correction pattern trot_demo.py's own
+                    # yaw history already showed (fx pinned while the error keeps growing anyway); and
+                    # (2) this run fell - a real safety abort (|pitch|=26.0deg) after only ~90 samples,
+                    # versus the pre-fix baseline run (same backward walk, same setup) which ran the full
+                    # 394 samples to -57.4deg of drift without ever falling. pitch_rate spiked to
+                    # +70.8deg/s right before the abort, with roll swinging +7.1 -> -3.8deg in the same
+                    # window - a real dynamic destabilization, not just noise. Can't prove this fix caused
+                    # the fall outright (one run, and backward walking was already the fragile case),
+                    # but it clearly didn't do its one job (stop the yaw drift) while correlating with a
+                    # new failure mode the no-fix case hadn't shown at this point in a walk. Per this
+                    # file's own lesson (an under-powered correction that saturates without closing the
+                    # error doesn't help, and trot_demo.py's yaw history shows pushing the gain/clamp
+                    # further blind made things worse twice, not better) - reverting instead of tuning
+                    # blind. Zeroing KP rather than deleting the mechanism keeps yaw_hold_err/yaw_hold_fx
+                    # logging live for the next diagnostic pass. Backward-walking yaw drift is, for now,
+                    # an accepted lower-priority cosmetic issue next to an actual fall - the same
+                    # trade-off trot_demo.py's own yaw v2 fix already made for the same reason.
+
+=== SPEED_SETTLE_THRESHOLD ===
+# m/s, ported from trot_demo.py's post-gait-fall fix. Treat the body as
+                                 # "stopped enough" once the real measured speed is at/below this, not
+                                 # just once the rate-limited target_vx/turn have decayed to ~0 - those
+                                 # don't tell you if the body has actually stopped moving. Added after a
+                                 # run where releasing all keys made the robot jump backward and fall: the
+                                 # shutdown used to kill the control thread (and with it the pitch/roll
+                                 # correction and flat-stance holding - see control_loop's else branch) on
+                                 # a fixed 2s timer keyed only off the targets, regardless of real
+                                 # leftover speed. See the wait loop at the bottom of the main sequence
+                                 # below.
+
+=== LAST_STATUS ===
+# read by
+                                    # status_line - control_loop runs on its own thread, so this is how
+                                    # the debug output sees the roll correction term and gait phase
+                                    # without recomputing them. active_pair was added to check the
+                                    # user-reported periodic near-zero/backward velocity windows against
+                                    # which leg pair is swinging vs just landed - see the PRINT_INTERVAL
+                                    # change below, same investigation.
+
+=== TROT_PHASE_CLOCK_NOTE ===
+# The trot phase clock only advances while there's live input above a small deadband; otherwise all
+# four feet hold a static stance and the phase resets to 0, so movement always resumes from a clean
+# stance instead of mid-cycle.
+
+=== FOOT_RATE_LIMIT_INTRO ===
+# Foot targets go straight to IK every tick with no smoothing of their own (the trot waveform is smooth
+# by construction, but switching between "trotting" and "static stance" above is a mode change, not a
+# continuous function) - rate-limit them here so that switch is a quick glide, not an instant multi-cm
+# snap.
+
+=== IS_TURNING_NOTE ===
+# used by the yaw-hold logic below - see
+                                                            # YAW_HOLD_KP's comment for why this needs
+                                                            # its own flag, separate from is_moving.
+
+=== PER_LEG_TURN_OFFSET ===
+            # Per-leg effective forward speed = commanded translation + a per-side steering offset
+            # (+ for left legs, - for right, via LEG_LR). Feeding this into foot_target_for_leg
+            # instead of the shared target_vx[0] means turning isn't a separate offset bolted on
+            # after the fact - it's the same stride-amplitude/direction machinery walking already
+            # uses, just driven per side. That's what lets stance legs actively sweep during a pure
+            # in-place rotation (target_vx==0, target_turn!=0), and lets translate+turn compose for
+            # free.
+            # Stronger gain for pure in-place turning (target_vx ~0) than for turning while also
+            # walking - see TURN_VX_GAIN_PURE's comment above for the evidence.
+
+=== ACTIVE_PAIR_DIAGNOSTIC ===
+            # diagnostic: track which pair is swinging, to correlate against the periodic near-zero/
+            # backward velocity windows reported during otherwise-normal walking - see last_status's
+            # comment.
+
+=== THETA_FF_DIRECTION_FIX ===
+        # ported fix: feedforward nose-up bias timed to the currently-swinging pair's phase - see
+        # FEEDFORWARD_PITCH_BIAS_RAD's comment above for the reasoning. active_pair/t only mean
+        # anything while is_actively_moving (same condition that sets last_status["active_pair"] and t
+        # above), so theta_ff stays 0 otherwise - no feedforward while idle/released, matching how
+        # CORRECTION_FRACTION/PITCH_RATE_DAMPING also switch to their idle gains in that case.
+        # Also gate this out during pure rotation (target_vx ~0, only turning). This bias's shape (a
+        # half-sine nose-up push peaking mid-swing) came from trot_demo.py's FORWARD-walking dip -
+        # support narrowing to 2 diagonal legs while forward momentum keeps carrying the body, a
+        # fore-aft thing. Digging into the "still stalls like crazy" report, even after raising
+        # TURN_VX_GAIN_PURE to this file's documented-safe ceiling (0.5*MAX_VX), turned up something
+        # gain alone can't explain: the stalls line up with real physical stumbles, not just no-motion -
+        # one stretch showed pitch surging +1.8 -> +7.5deg and body_xyz.x sliding ~0.06m within a
+        # handful of samples, with yaw briefly reversing (-176.1 -> -173.7deg) before resuming - a real
+        # destabilization, not friction stiction. Pure in-place rotation has no forward momentum to make
+        # that same fore-aft dip - it's a torsional disturbance instead - so a bias shaped for the other
+        # kind of disturbance is at best useless here and at worst an untested extra pitch push on an
+        # already turn-disturbed gait at exactly the wrong moment. Same rule as yaw_hold above: don't
+        # use a mechanism outside the context it was actually validated in.
+        # Real fall, not a hypothesis: a straight backward walk (vx_target=-0.170, turn_target=0 the
+        # whole time - not a turning problem) fell to a growing, one-directional pitch runaway: -5.4 ->
+        # +5.8 -> +13.3 -> +23.6 -> +22.3deg -> abort at +25.3deg. Pitch trended positive (nose up) the
+        # whole time, the opposite sign from the forward-walking dip (always nose-down) that
+        # FEEDFORWARD_PITCH_BIAS_RAD's formula below was validated against in trot_demo.py. The formula
+        # as ported (`-PITCH_SIGN * BIAS * sin(...)`) is always <=0 no matter which way you're walking -
+        # it doesn't know that backward walking should, by the same physics that makes forward walking
+        # dip nose-down, produce a mirrored nose-up dip instead (which matches what this fall's data
+        # shows). So every swing during that backward walk got an always-negative feedforward push while
+        # the real disturbance needing correction was nose-up - fighting the wrong direction every
+        # half-cycle, on top of whatever theta_p/theta_d were doing. Fixed by mirroring the bias off
+        # travel direction the same way foot_target_for_leg's own `direction` variable already does (+1
+        # for vx>=0, -1 for vx<0) - forward walking is unaffected (direction=+1 reproduces the original
+        # bias exactly), backward walking now gets the sign-flipped version instead of blindly reusing
+        # forward's.
+
+=== THETA_CLAMP_DIAGNOSTIC ===
+        # diagnostic: both roll_term theories (flat, then mirrored) failed to explain or fix the
+        # sustained-walk pitch aborts - disabling roll correction entirely (ROLL_ABAD_FRACTION=0.0
+        # above) changed nothing, so roll_term isn't the cause. The actual pattern in
+        # run_log_manual.txt: pitch stays bounded (roughly -1 to -14deg) for the first ~15s of walking,
+        # then grows into much bigger swings and eventually aborts - a slow buildup only visible on a
+        # long sustained walk, longer than trot_demo.py's own automated tests (N_CYCLES=6 => 6s) and
+        # probably longer than whatever testing originally validated this file's gains. Recording the
+        # p/d terms and whether theta is clamped, not just its final value, so the next long walk shows
+        # whether the correction is saturating (under-authority, same shape as the yaw problem) or
+        # something else (e.g. a resonance between the 1Hz gait cycle and this loop that isn't a simple
+        # clamp issue).
+
+=== YAW_HOLD_LOOP_NOTE ===
+        # yaw hold - see YAW_HOLD_KP's comment above for the full reasoning. Only active while NOT
+        # steering (is_turning), so it corrects drift during straight walking or idle without fighting
+        # a deliberate A/D turn.
+
+=== YAW_HOLD_TARGET_LOCK ===
+# lock in heading the instant turning stops (or on
+                                                      # the first tick), instead of one fixed
+                                                      # session-wide baseline - see the comment above.
+
+=== SWINGING_LEGS_YAW_RESTRICTION ===
+        # Same restriction as trot_demo.py's yaw correction: only ever applied to the currently-
+        # swinging pair, never planted stance legs (pushing a loaded stance foot's fx couples straight
+        # into pitch via a front/back stance asymmetry - see trot_demo.py's comment for the full
+        # mechanism).
+
+=== ROLL_TERM_MIRROR_FIX ===
+            # Note: roll_term used to be added identically to every leg here, no per-side sign flip.
+            # abad_geo's own sign is already mirrored left/right (via leg_ik_3d's oy term), so adding
+            # the same delta to all four legs doesn't flare/narrow both sides symmetrically - it shoves
+            # every foot's lateral position the same physical direction, widening stance on one side and
+            # narrowing the other. Fine as small noise for standing/walking, but turning induces real
+            # roll from the asymmetric left/right stance forces, and this term reacting to that roll
+            # could progressively pull one side's feet inward right when the diagonal-trot support base
+            # is already thin - a plausible cause of "legs come too close together" after turning. If
+            # disabling it above (ROLL_ABAD_FRACTION = 0.0) stops the turn-then-fall, the fix is to
+            # mirror the sign per leg (`abad = abad_geo + OY[leg] * roll_term`) instead of re-enabling
+            # this as-is.
+            # Fix applied: a run with turn_target=0 the entire time (straight-line forward walking, no
+            # turning at all) showed exactly the failure predicted above - "robot going backwards during
+            # forward walking" plus brief lift-ups close to losing balance. In the log, every
+            # instantaneous backward jolt (body x decreasing between samples, e.g. 0.190->0.184,
+            # 0.259->0.225) lines up with a roll_term spike (+0.92deg, -1.06deg) at that same sample, and
+            # the worst body-z "lift" (0.365 vs the ~0.33-0.35 walking baseline) follows the biggest
+            # roll_term spike (-1.17deg) one sample later. So it's not just turning-induced - the trot's
+            # own side-to-side sway, even walking dead straight, was enough to trigger it. Applying the
+            # mirrored fix: OY[leg] flips sign left/right (matching how abad_geo's own geometry is
+            # already mirrored via leg_ik_3d's oy argument), so a positive roll correction now pushes the
+            # two sides' ABAD joints in opposite directions (actually countering roll) instead of
+            # shoving all four the same way, which is the mechanism this note was worried about.
+
+=== KEYBOARD_INPUT_PLATFORM_NOTE ===
+# keyboard input - Windows only. Uses ctypes + GetAsyncKeyState to poll real, simultaneous key state
+# directly, instead of inferring "held" from msvcrt's console key-repeat (which only auto-repeats one
+# key at a time - see the old KEY_HOLD_TIMEOUT approach in git history - so holding translation +
+# rotation keys together would starve each other out). To port to Linux/macOS, swap this thread's body
+# for a termios/tty cbreak-mode reader or the third-party `keyboard` package - everything else here is
+# platform-independent.
+
+=== PRINT_INTERVAL ===
+# temporary, was 0.3. User reported a repeating near-zero/backward velocity dip
+                       # during otherwise-normal walking - walks fine, dips, walks fine again. 0.3s/
+                       # sample can't resolve that: each leg-pair swap happens every TROT_PERIOD/2=0.5s,
+                       # so the old print rate wasn't synced to that handoff and could alias a real
+                       # per-swap stutter into scattered occasional dips instead of showing the clean
+                       # repeating pattern. Dropped to the outer loop's own 0.05s poll rate (~10 samples
+                       # per half-cycle) to actually see what happens at each stance/swing handoff.
+                       # Revert to 0.3 once this is root-caused - the log will be ~6x longer than usual
+                       # meanwhile.
+
+=== SHUTDOWN_WAIT_NOTE ===
+# Keep the control thread alive (and with it the pitch/roll correction and flat-stance holding) until
+# the real measured speed has actually settled, instead of tearing it down right after the fixed-
+# duration move above regardless of leftover momentum. See SPEED_SETTLE_THRESHOLD's comment - this is a
+# direct port of trot_demo.py's coast-to-stop wait, just applied to manual_control's own shutdown
+# instead of a scripted run's end.

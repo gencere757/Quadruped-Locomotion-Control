@@ -1,0 +1,7 @@
+=== FRAME_NOTE ===
+# frame note: Pose_V gives the model's pose ("my_quadruped") relative to world, but each
+# link's pose ("FR_shank" etc) is relative to the model (local/body frame). So getting a
+# foot's world position means rotating the link offset into world frame before adding body_xyz.
+
+=== N_CYCLES ===
+# back to 3 now GAIT_PERIOD is back to 6.0 - keeps total gait time ~18s

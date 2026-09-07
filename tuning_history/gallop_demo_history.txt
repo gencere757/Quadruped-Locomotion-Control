@@ -1,0 +1,97 @@
+=== EXPERIMENTAL bound/gallop gait design note ===
+# EXPERIMENTAL: bound/half-bound gait, our first step toward a real gallop.
+# Rough order: trot -> pace -> bound -> gallop, each one faster and less stable.
+# Not a true rotary/transverse gallop yet - that needs an actual flight phase (all 4
+# feet off the ground at once, duty factor below what alternating pairs can give) plus
+# independently-timed legs. Neither is modeled here: SWING_DUTY = 1 - STANCE_DUTY still
+# assumes STANCE_DUTY >= 0.5, same floor as trot_demo.py's.
+# A bound is the natural first step: same two-pairs-of-legs setup as the trot, just
+# grouped front/back instead of diagonal, with a short phase lag between the pairs
+# instead of trot's clean half-cycle split. A real different gait, not a renamed trot.
+#
+# Everything that isn't about how the pairs are grouped/timed (IK, IMU/pose plumbing,
+# safety abort, the reactive pitch/roll gains) is carried over as-is from trot_demo.py's
+# already-validated version, since none of that is gait-specific.
+# What IS gait-specific (STANCE_DUTY, the feedforward pitch bias, DESIRED_VX, N_CYCLES)
+# starts conservative and is flagged unvalidated below. A bound throws the body's pitch
+# around harder than a trot - both front feet leave the ground together, then both back
+# feet, a bigger and more synchronized fore-aft hit than trot's diagonal split ever gives.
+# So gains/bias tuned for trot's gentler disturbance aren't assumed to carry over cleanly.
+# Check the first real run's diagnostic log before trusting any of these numbers.
+
+=== D_ABAD ===
+# D_ABAD: fixed distance (in the leg's local Y direction at zero abduction) from the
+# ABAD pivot to the HIP pivot. Read straight off model.sdf's link poses (FL_thigh y=0.213
+# minus FL_ABAD_L y=0.113 = 0.1, same on all four legs). It's a mechanical arm length,
+# not a tuning constant.
+
+=== OY ===
+# OY: real left(+1)/right(-1) map - which way is "outward" for each leg at zero abduction.
+# Not the same as LEG_SIDE above (that's front/back, for the 2-link plane's geometry).
+# Same left/right assignment as LEG_LR further below (added for yaw correction) - both
+# are just describing the same physical fact about the robot.
+
+=== GALLOP_PERIOD ===
+GALLOP_PERIOD = 1.0        # seconds per cycle. Starting equal to trot_demo.py's TROT_PERIOD
+                           # instead of shorter (a real gallop runs faster-cadence than a trot) -
+                           # keeps this test to just the disturbance/grouping change, not cadence too.
+
+=== STANCE_DUTY ===
+STANCE_DUTY = 0.6          # Same 0.6 trot_demo.py already validated (real double-support windows,
+                           # helps yaw stability and speed there) instead of the 0.5 floor. Still
+                           # UNVALIDATED for bound - its front-then-back grouping may want a
+                           # different value than trot's diagonal one. Starting point, not a conclusion.
+
+=== GALLOP_PHASE_LAG ===
+GALLOP_PHASE_LAG = 0.15    # The actual bound-defining parameter, new here. Trot's PAIR_PHASE_OFFSET
+                           # splits its two pairs by exactly 0.5 (half a cycle) - fully alternating.
+                           # A bound instead has the FRONT pair and BACK pair moving almost together,
+                           # just a short lag apart (unlike trot's 50/50, and unlike a "half-bound"
+                           # which uses a bigger lag closer to trot's). 0.15 (15% of a cycle) is a
+                           # starting guess - front leads, back follows shortly after, more together
+                           # than apart - not measured, just a reasonable first value. Try smaller
+                           # (closer to a true simultaneous bound) or bigger (drifting toward trot-like
+                           # alternation) if the first run looks unstable or doesn't look bound-like.
+
+=== DESIRED_VX ===
+DESIRED_VX = 0.10          # m/s, deliberately lower than trot_demo.py's current 0.17 - this is a
+                           # brand-new, unvalidated gait on a robot that already took several rounds
+                           # of tuning just to trot cleanly. Start slow, work up once there's real
+                           # data, same conservative approach as the rest of this session - not a
+                           # jump straight to "real" gallop speed.
+
+=== Reactive pitch/roll correction gains ===
+# Reactive pitch/roll correction - gains carried over from trot_demo.py's validated version.
+# These were tuned against a DIAGONAL-swing disturbance. A bound's front-then-back disturbance
+# is bigger and more synchronized (both front feet, then both back feet, leave the ground
+# together - trot never does that), so treat these as a starting point to watch, not something
+# proven to behave the same here.
+
+=== FEEDFORWARD_PITCH_BIAS_RAD ===
+# EXPERIMENTAL, UNVALIDATED: feedforward pitch bias. Structurally ported from trot_demo.py's
+# v3/v4 fix (see that file's FEEDFORWARD_PITCH_BIAS_RAD comment for the full original reasoning),
+# but not assumed to be the right shape for this gait. It was derived from a trot's fore-aft dip
+# (support narrows to 2 diagonal legs while momentum carries the body over them). A bound's
+# disturbance is different: BOTH front feet leave together, then BOTH back feet - the body might
+# pitch nose-down during front-swing and nose-up during back-swing (or something else entirely),
+# not necessarily trot's single-direction dip. Kept small and conservative for now, same sign
+# convention as trot. Check the first real run's diagnostic log (theta terms + pitch) before
+# trusting this - it may need to be re-derived from this gait's own data rather than assumed from
+# trot's, the same way manual_control.py's backward-walking fall showed a forward-derived bias can
+# fight the wrong direction when the disturbance's sign doesn't match what it was tuned for.
+
+=== feedforward pitch application (control_loop) ===
+        # EXPERIMENTAL feedforward - see the FEEDFORWARD_PITCH_BIAS_RAD comment above. Timed to
+        # whichever pair (FRONT or BACK) is swinging, same half-sine shape as trot_demo.py's version
+        # (zero at liftoff/touchdown, peak at mid-swing).
+
+=== yaw correction pair steering (control_loop) ===
+        # Yaw correction only applied to the currently-swinging pair, same as trot_demo.py: a
+        # bound's swinging pair is front-front or back-back (not one-left-one-right like trot's
+        # diagonal pair), but LEG_LR still gives opposite signs within a pair (FL=+1/FR=-1,
+        # BL=+1/BR=-1), so the mechanism still works even though the grouping is different.
+
+=== diagnostic sampling rate (main loop) ===
+        if tick % 5 == 0:   # 0.1s/sample - a reasonable default, not the fine-grained 0.06s
+                            # trot_demo.py used for its dip investigation (this gait doesn't have
+                            # that specific question yet - tighten it if a first look raises one).
