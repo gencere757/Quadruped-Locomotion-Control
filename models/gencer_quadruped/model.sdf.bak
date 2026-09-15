@@ -500,7 +500,5 @@
       <p_gain>265</p_gain><d_gain>10.6</d_gain>
       <cmd_max>40</cmd_max><cmd_min>-40</cmd_min>
     </plugin>
-    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
-    </plugin>
   </model>
 </sdf>

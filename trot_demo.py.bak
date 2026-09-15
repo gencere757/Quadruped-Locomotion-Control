@@ -15,7 +15,6 @@ import sys
 import os
 import shutil
 import datetime
-import leg_odometry
 
 _LOG_NAME = "run_log_trot.txt"   # filename for this run's log
 _ARCHIVE_DIR = "run_log_archive"   # folder where old logs get copied
@@ -110,13 +109,6 @@ latest_pitch = [0.0]   # current pitch angle, radians
 latest_roll = [0.0]   # current roll angle, radians
 latest_yaw = [0.0]   # current yaw angle, radians
 
-# raw body-frame angular velocity straight from the gyro (wx, wy, wz), rad/s - fed to the leg
-# odometry estimator's rotation-transport correction term (see leg_odometry.py's update()
-# docstring). Deliberately NOT low-pass filtered like latest_pitch_rate/latest_yaw_rate below:
-# this feeds an algebraic correction applied fresh every tick, not a control gain, so there's no
-# stability reason to lag it, and lagging it would just desynchronize it from this tick's foot_now.
-latest_omega = [0.0, 0.0, 0.0]
-
 PITCH_RATE_LPF_ALPHA = 0.10
 latest_pitch_rate = [0.0]   # filtered pitch rate, rad/s
 _pitch_rate_source = [None]   # tracks whether pitch rate came from gyro or estimate
@@ -135,13 +127,6 @@ def imu_callback(msg):
     latest_pitch[0] = math.asin(sinp)
     latest_roll[0] = math.atan2(2 * (q.w * q.x + q.y * q.z), 1 - 2 * (q.x * q.x + q.y * q.y))
     latest_yaw[0] = math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z))
-
-    try:
-        latest_omega[0] = msg.angular_velocity.x   # roll rate, body frame, straight from the gyro
-        latest_omega[1] = msg.angular_velocity.y   # pitch rate, body frame
-        latest_omega[2] = msg.angular_velocity.z   # yaw rate, body frame
-    except AttributeError:
-        pass   # no gyro data this tick - leave latest_omega at its last known value
 
     raw_rate = None   # holds this tick's raw pitch rate value
     try:
@@ -179,31 +164,30 @@ def imu_callback(msg):
 
 node.subscribe(IMU, "/model/my_quadruped/imu", imu_callback)
 
-# Ground-truth body pose - kept ONLY for side-by-side validation logging against the leg-odometry
-# estimator below, never used for control decisions anymore. gt_ prefix marks this explicitly.
-gt_body_xyz = [None, None, None]   # ground-truth body x,y,z position
-gt_body_vel = [0.0, 0.0, 0.0]   # ground-truth body velocity x,y,z
-_gt_prev_body_xyz = [None, None, None]   # previous ground-truth position, for velocity calc
-_gt_prev_pose_time = [None]   # timestamp of previous ground-truth pose sample
-gt_link_z = {}   # per-leg foot height, world frame, ground truth (diagnostic only)
+# Ground-truth body pose and per-foot world z, for diagnostics only - no support-polygon math here
+body_xyz = [None, None, None]   # latest body x,y,z position
+body_vel = [0.0, 0.0, 0.0]   # latest body velocity x,y,z
+_prev_body_xyz = [None, None, None]   # previous body position, for velocity calc
+_prev_pose_time = [None]   # timestamp of previous pose sample
+link_z = {}   # per-leg foot height, world frame
 
 def pose_callback(msg):
     for p in msg.pose:   # loop over each body/link pose in the message
         if p.name == "my_quadruped":   # is this pose entry for the robot's main body?
             now = time.time()   # current time, for velocity calc
-            if _gt_prev_pose_time[0] is not None:   # skip the velocity calc on the very first sample
-                dt = now - _gt_prev_pose_time[0]   # time since last pose sample
+            if _prev_pose_time[0] is not None:   # skip the velocity calc on the very first sample
+                dt = now - _prev_pose_time[0]   # time since last pose sample
                 if dt > 1e-4:   # only compute velocity if enough time has passed
-                    gt_body_vel[0] = (p.position.x - _gt_prev_body_xyz[0]) / dt
-                    gt_body_vel[1] = (p.position.y - _gt_prev_body_xyz[1]) / dt
-                    gt_body_vel[2] = (p.position.z - _gt_prev_body_xyz[2]) / dt
-            _gt_prev_body_xyz[0], _gt_prev_body_xyz[1], _gt_prev_body_xyz[2] = p.position.x, p.position.y, p.position.z   # save current position for next velocity calc
-            _gt_prev_pose_time[0] = now
-            gt_body_xyz[0], gt_body_xyz[1], gt_body_xyz[2] = p.position.x, p.position.y, p.position.z   # update latest known ground-truth body position
+                    body_vel[0] = (p.position.x - _prev_body_xyz[0]) / dt
+                    body_vel[1] = (p.position.y - _prev_body_xyz[1]) / dt
+                    body_vel[2] = (p.position.z - _prev_body_xyz[2]) / dt
+            _prev_body_xyz[0], _prev_body_xyz[1], _prev_body_xyz[2] = p.position.x, p.position.y, p.position.z   # save current position for next velocity calc
+            _prev_pose_time[0] = now
+            body_xyz[0], body_xyz[1], body_xyz[2] = p.position.x, p.position.y, p.position.z   # update latest known body position
         else:
             for leg_name in legs:   # check each leg name for a match
                 if p.name.endswith(f"{leg_name}_shank"):   # is this pose entry for this leg's shank link?
-                    gt_link_z[leg_name] = p.position.z
+                    link_z[leg_name] = p.position.z
                     break
 
 node.subscribe(Pose_V, "/world/empty/pose/info", pose_callback)
@@ -321,18 +305,6 @@ def check_abort():
 SPEED_SETTLE_THRESHOLD = 0.06
 
 CONTROL_DT = 0.02   # seconds between control loop updates
-
-# ABAD pivot offsets from body origin (x,y), read directly from model.sdf's *_ABAD_L link
-# poses - NOT the same as a hip-pivot offset; leg_ik_3d/leg_fk_3d work relative to the ABAD
-# pivot specifically, per their own docstrings.
-ABAD_OFFSET = {"FL": (0.15, 0.113), "FR": (0.15, -0.113), "BL": (-0.15, 0.113), "BR": (-0.15, -0.113)}
-
-# Leg-odometry + IMU state estimator - replaces gt_body_xyz/gt_body_vel above for all control
-# decisions. See leg_odometry.py's module docstring for the full design rationale.
-estimator = leg_odometry.LegOdometryEstimator(
-    model_name="my_quadruped", world_name="empty", legs=legs,
-    oy_map=OY, side_map=LEG_SIDE, hip_offset_map=ABAD_OFFSET,
-    L1=L1, L2=L2, D_ABAD=D_ABAD, control_dt=CONTROL_DT)
 last_theta_terms = {"p": 0.0, "d": 0.0, "ff": 0.0, "clamped": 0.0, "saturated": False}   # most recent pitch correction terms, for logging
 last_yaw_terms = {"err": 0.0, "fx_term": 0.0, "fy_term": 0.0}   # most recent yaw correction terms, for logging
 last_active_pair = [None]   # which leg pair is currently swinging
@@ -351,19 +323,9 @@ def control_loop():
             else:
                 t = time.time() - gait_start_time[0]   # elapsed time since gait started
                 active_pair = current_swing_pair(t)   # which pair is swinging right now
-        else:
-            t = 0.0   # gait not active - only used below if active_pair stays None, which it does
+                for leg in legs:   # loop over all four legs
+                    foot_target[leg] = foot_target_for_leg(leg, t, body_vel[0])   # compute this leg's trot target for right now
         last_active_pair[0] = active_pair
-
-        # which legs are actually swinging right now - needed by the estimator (everything
-        # else is assumed planted) before we can use its velocity output below
-        swinging_legs = PAIR_A if active_pair == "A" else (PAIR_B if active_pair == "B" else [])
-        stance_legs = [l for l in legs if l not in swinging_legs]
-        estimator.update(time.time(), latest_pitch[0], latest_roll[0], latest_yaw[0], latest_omega, stance_legs)
-
-        if gait_active[0] and gait_start_time[0] is not None and not coast_to_stop[0]:
-            for leg in legs:   # loop over all four legs
-                foot_target[leg] = foot_target_for_leg(leg, t, estimator.body_vel[0])   # compute this leg's trot target for right now
 
         is_actively_walking = gait_active[0] and not coast_to_stop[0]   # True only while actively trotting, not idle/coasting
         pitch_gain = CORRECTION_FRACTION if is_actively_walking else IDLE_CORRECTION_FRACTION   # pick active or idle pitch gain
@@ -402,6 +364,8 @@ def control_loop():
         last_yaw_terms["fx_term"] = yaw_correction
         last_yaw_terms["fy_term"] = fy_correction
 
+        swinging_legs = PAIR_A if active_pair == "A" else (PAIR_B if active_pair == "B" else [])   # which pair is currently swinging, if any
+
         for leg in legs:   # apply corrections and publish commands per leg
             fx, fz = foot_target[leg]   # this leg's current target x,z
             this_yaw_term = yaw_correction if leg in swinging_legs else 0.0   # yaw correction only for swinging legs
@@ -424,16 +388,14 @@ def control_loop():
 t = threading.Thread(target=control_loop, daemon=True)
 
 def diagnostic_line(label):
-    vx, vy, vz = estimator.body_vel   # unpack estimated body velocity components (leg odometry, not ground truth)
+    vx, vy, vz = body_vel   # unpack body velocity components
     speed = math.hypot(vx, vy)   # horizontal speed magnitude
     states = {l: ("SW" if leg_is_swinging(l, (time.time() - gait_start_time[0]) if gait_start_time[0] else 0.0) else "st")
               for l in legs} if gait_active[0] else {l: "-" for l in legs}   # swing/stance state label per leg, for logging
-    foot_z_str = " ".join(f"{l}:{gt_link_z.get(l, float('nan')):+.3f}" for l in legs)   # formatted per-leg foot height string (ground truth, diagnostic only), for logging
-    gt_speed = math.hypot(gt_body_vel[0], gt_body_vel[1])   # ground-truth horizontal speed, for validation only
+    foot_z_str = " ".join(f"{l}:{link_z.get(l, float('nan')):+.3f}" for l in legs)   # formatted per-leg foot height string, for logging
     line = (f"  [{label}] pitch: {math.degrees(latest_pitch[0]):+.2f} deg  "
             f"roll: {math.degrees(latest_roll[0]):+.2f} deg  yaw: {math.degrees(latest_yaw[0]):+.2f} deg  "
-            f"body_xyz(est): {[round(v,3) for v in estimator.body_xyz]}  body_xyz(gt): {gt_body_xyz}  "
-            f"speed_xy(est): {speed:.3f} speed_xy(gt): {gt_speed:.3f} (target {DESIRED_VX:.3f})  "
+            f"body_xyz: {body_xyz}  speed_xy: {speed:.3f} (target {DESIRED_VX:.3f})  "
             f"pitch_rate: {math.degrees(latest_pitch_rate[0]):+.1f} deg/s  "
             f"theta(p={math.degrees(last_theta_terms['p']):+.2f} d={math.degrees(last_theta_terms['d']):+.2f} "
             f"ff={math.degrees(last_theta_terms['ff']):+.2f} "
@@ -484,7 +446,7 @@ N_CYCLES = 6   # how many trot cycles to run before stopping
 print("waiting for the drop to settle...")
 time.sleep(5.0)
 print(f"landed, pitch = {math.degrees(latest_pitch[0]):.2f} deg  roll = {math.degrees(latest_roll[0]):.2f} deg")
-print(f"body position (ground truth - estimator not running yet): {gt_body_xyz}")
+print(f"body position: {body_xyz}")
 print(f"yaw at settle (before control_loop has published a single command): {math.degrees(latest_yaw[0]):+.2f} deg")
 
 t.start()
@@ -497,8 +459,7 @@ for _ in range(20):   # repeat a few times to sample settle
     diagnostic_line("crouch settle")
     time.sleep(0.1)
 
-start_xyz = list(estimator.body_xyz)   # estimated body position at the start of the run
-gt_start_xyz = list(gt_body_xyz)   # ground-truth body position at the same moment, for validation
+start_xyz = list(body_xyz)   # body position at the start of the run
 start_yaw = latest_yaw[0]   # yaw heading at the start of the run
 print(f"start_yaw (reset baseline, absolute): {math.degrees(start_yaw):+.2f} deg")
 print(f"TROT_PERIOD={TROT_PERIOD}s  STANCE_DUTY={STANCE_DUTY}  DESIRED_VX={DESIRED_VX} m/s  "
@@ -530,13 +491,13 @@ if not aborted[0]:   # only start the actual trot if we haven't aborted
                 coast_to_stop[0] = True
                 print(f"--- run duration elapsed (t={elapsed:.2f}s); planting all 4 feet flat, "
                       f"waiting for speed < {SPEED_SETTLE_THRESHOLD:.2f} m/s ---")
-            speed_now = math.hypot(estimator.body_vel[0], estimator.body_vel[1])   # current estimated horizontal speed
+            speed_now = math.hypot(body_vel[0], body_vel[1])   # current horizontal speed
             if speed_now <= SPEED_SETTLE_THRESHOLD or elapsed >= total_duration + MAX_EXTRA_DECEL:   # has the robot slowed enough, or did grace time run out?
                 break
         if tick % 3 == 0:
             tag = " (decelerating)" if elapsed >= decel_start else ""   # label to show in the log line
             if elapsed >= total_duration:   # are we in the waiting-to-settle phase?
-                tag += f" (waiting for speed<{SPEED_SETTLE_THRESHOLD:.2f}, now {math.hypot(estimator.body_vel[0], estimator.body_vel[1]):.3f})"
+                tag += f" (waiting for speed<{SPEED_SETTLE_THRESHOLD:.2f}, now {math.hypot(body_vel[0], body_vel[1]):.3f})"
             diagnostic_line(f"trot t={elapsed:.2f}{tag}")
         tick += 1
         time.sleep(CONTROL_DT)
@@ -548,22 +509,16 @@ if not aborted[0]:   # only start the actual trot if we haven't aborted
         move_feet_manual({leg: (0.0, STANCE_FZ) for leg in legs}, duration=1.5, steps=75,
                           label="post-gait settle")
 
-end_xyz = list(estimator.body_xyz)   # estimated body position at the end of the run
-gt_end_xyz = list(gt_body_xyz)   # ground-truth body position at the same moment, for validation
-dx = end_xyz[0] - start_xyz[0]   # how far the body moved in x (estimated)
-dy = end_xyz[1] - start_xyz[1]   # how far the body moved in y (estimated)
-dist = math.sqrt(dx*dx + dy*dy)   # total straight-line distance traveled (estimated)
-gt_dx = gt_end_xyz[0] - gt_start_xyz[0]
-gt_dy = gt_end_xyz[1] - gt_start_xyz[1]
-gt_dist = math.sqrt(gt_dx*gt_dx + gt_dy*gt_dy)
+end_xyz = list(body_xyz)   # body position at the end of the run
+dx = end_xyz[0] - start_xyz[0]   # how far the body moved in x
+dy = end_xyz[1] - start_xyz[1]   # how far the body moved in y
+dist = math.sqrt(dx*dx + dy*dy)   # total straight-line distance traveled
 elapsed_total = N_CYCLES * TROT_PERIOD   # total time the gait ran, seconds
 dyaw_deg = math.degrees(math.atan2(math.sin(latest_yaw[0] - start_yaw), math.cos(latest_yaw[0] - start_yaw)))   # net yaw turned, wrapped to +-180 deg
-print(f"net displacement (estimated, leg odometry): dx={dx:.3f} dy={dy:.3f}  total distance={dist:.3f} m  "
+print(f"net displacement: dx={dx:.3f} dy={dy:.3f}  total distance={dist:.3f} m  "
       f"net yaw turned={dyaw_deg:+.1f} deg")
-print(f"net displacement (ground truth, validation only): dx={gt_dx:.3f} dy={gt_dy:.3f}  total distance={gt_dist:.3f} m  "
-      f"estimator error: {math.hypot(dx-gt_dx, dy-gt_dy):.3f} m")
 print(f"avg speed achieved: {dist/elapsed_total:.4f} m/s (target was {DESIRED_VX:.3f} m/s)")
-print(f"final body z (estimated): {end_xyz[2]:.3f}  (ground truth: {gt_end_xyz[2]:.3f})  (collapsed if well below ~0.35)")
+print(f"final body z: {end_xyz[2]:.3f}  (collapsed if well below ~0.35)")
 END_WAIT_MIN = 2.0    # seconds - always sample at least this long, even if speed happens to read
                        # low immediately (avoids calling a fluke instant "settled").
 END_WAIT_MAX = 6.0     # seconds - hard cap.
@@ -573,7 +528,7 @@ while True:   # keep sampling until settled or the timeout hits
         break
     diagnostic_line("end of loop")
     _elapsed_end = time.time() - _end_wait_start   # seconds spent in this final wait
-    _speed_now = math.hypot(estimator.body_vel[0], estimator.body_vel[1])   # current estimated horizontal speed
+    _speed_now = math.hypot(body_vel[0], body_vel[1])   # current horizontal speed
     if (_elapsed_end >= END_WAIT_MIN and _speed_now <= SPEED_SETTLE_THRESHOLD) or _elapsed_end >= END_WAIT_MAX:   # has it settled long enough, or hit the max wait?
         break
     time.sleep(0.1)
